@@ -1,0 +1,54 @@
+cabal-version: 3.0
+name: sf2tal
+version: 0.1.0.0
+build-type: Simple
+license: 0BSD
+license-files: LICENSE.md
+copyright: Copyright (C) 2024 by EOWNERDEAD <eownerdead@disroot.org>
+author: EOWNERDEAD
+maintainer: eownerdead@disroot.org
+homepage: https://codeberg.org/eownerdead/sf2tal
+
+common common
+  default-language: GHC2021
+  default-extensions:
+    DerivingStrategies,
+    LambdaCase,
+    MultiWayIf,
+    OverloadedStrings,
+    ParallelListComp,
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wmissing-deriving-strategies
+  build-depends:
+    base ^>=4.18.2.1,
+
+library sf2tal-lib
+  import: common
+  hs-source-dirs: src
+  build-depends:
+    mtl ^>=2.3.1,
+    text ^>=2.0.2,
+    unordered-containers ^>=0.2.20,
+    prettyprinter ^>=1.7.1,
+  exposed-modules:
+    SF2TAL,
+    SF2TAL.Common,
+    SF2TAL.F,
+    SF2TAL.Middle,
+    SF2TAL.K,
+    SF2TAL.C,
+    SF2TAL.H,
+    SF2TAL.A,
+
+executable sf2tal
+  import: common
+  hs-source-dirs: app
+  main-is: sf2tal.hs
+  build-depends:
+    sf2tal-lib,
+    mtl ^>=2.3.1,
+    text ^>=2.0.2,
+    prettyprinter ^>=1.7.1,
