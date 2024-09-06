@@ -12,6 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.HashMap.Strict qualified as HM
 import Data.Text as T
+import Lens.Micro.Platform
 import Prettyprinter
 import SF2TAL.Common
 
@@ -118,7 +119,7 @@ ty e = runReaderT (ty' e) mempty
 ty' :: Tm -> Tc Tm
 ty' (Var x) = do
   env <- ask
-  case env HM.!? x of
+  case env ^? ix x of
     Just t -> pure $ Var x `Ann` t
     Nothing -> throwError $ "Unbound variable " <> x
 ty' (IntLit i) = pure $ Ann (IntLit i) TInt
@@ -148,7 +149,7 @@ ty' (Tuple es) = do
 ty' (At i e) = do
   e' <- ty' e
   if
-    | TTuple ts <- ann e', Just t <- ts !? i -> pure $ At i e' `Ann` t
+    | TTuple ts <- ann e', Just t <- ts ^? ix i -> pure $ At i e' `Ann` t
     | otherwise -> throwError "At: e is not TTuple or invalid i"
 ty' (Bin op e1 e2) = do
   e1' <- ty' e1

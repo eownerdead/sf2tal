@@ -4,3 +4,6 @@
 - group:
     name: generalise
     enabled: true
+- group:
+    name: lens
+    enabled: true

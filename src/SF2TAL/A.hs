@@ -5,6 +5,7 @@ module SF2TAL.A (aProg) where
 import Control.Monad
 import Data.Bifunctor
 import Data.Foldable
+import Lens.Micro.Platform
 import SF2TAL.Common
 import SF2TAL.Middle
 
@@ -31,7 +32,7 @@ aProg (LetRec xs e) = LetRec <$> traverse aHval xs <*> aExp e
 
 aHval :: MonadUniq m => Ann -> m Ann
 aHval (Fix "" as xs e `Ann` t) =
-  Ann <$> (Fix "" as (fmap (second aTy) xs) <$> aExp e) <*> pure t
+  Ann <$> (Fix "" as (xs <&> _2 %~ aTy) <$> aExp e) <*> pure t
 aHval v = error $ "unannotated: " <> show v
 
 

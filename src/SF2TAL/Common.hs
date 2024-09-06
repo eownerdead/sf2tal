@@ -1,12 +1,7 @@
 module SF2TAL.Common where
 
 import Control.Monad.State
-import Data.Maybe
 import Data.Text qualified as T
-
-
-(!?) :: [a] -> Int -> Maybe a
-xs !? n = listToMaybe $ drop n xs
 
 
 type TName = T.Text

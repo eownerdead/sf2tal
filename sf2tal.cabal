@@ -32,6 +32,7 @@ library sf2tal-lib
     mtl ^>=2.3.1,
     text ^>=2.0.2,
     unordered-containers ^>=0.2.20,
+    microlens-platform ^>=0.4.3.5,
     prettyprinter ^>=1.7.1,
   exposed-modules:
     SF2TAL,

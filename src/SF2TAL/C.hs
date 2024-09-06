@@ -4,6 +4,7 @@ import Control.Monad (when)
 import Data.HashMap.Strict qualified as HM
 import Data.HashSet qualified as HS
 import Data.Text qualified as T
+import Lens.Micro.Platform
 import SF2TAL.Common
 import SF2TAL.Middle
 
@@ -19,7 +20,7 @@ cTy (TFix as ts) = do
   b <- freshName
   ts' <- traverse cTy ts
   pure $ TExists b $ tTuple [TFix as (TVar b : ts'), TVar b]
-cTy (TTuple ts) = TTuple <$> traverse (\(t, i) -> (,i) <$> cTy t) ts
+cTy (TTuple ts) = TTuple <$> traverseOf (each . _1) cTy ts
 cTy t@TExists{} = error $ "not in K: " <> show t
 
 

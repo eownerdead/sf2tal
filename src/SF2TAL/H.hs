@@ -44,6 +44,6 @@ hAnn (u `Ann` t) = case u of
     x' <- if x == "" then lift freshName else pure x
     e' <- hExp e
     writer (Var x' `Ann` t, HM.singleton x' (Fix "" as xs e' `Ann` t))
-  Tuple es -> Ann <$> (Tuple <$> mapM hAnn es) <*> pure t
+  Tuple es -> Ann <$> (Tuple <$> traverse hAnn es) <*> pure t
   v `AppT` t' -> Ann <$> (AppT <$> hAnn v <*> pure t') <*> pure t'
   Pack t1 v t2 -> Ann <$> (Pack t1 <$> hAnn v <*> pure t2) <*> pure t

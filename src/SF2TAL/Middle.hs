@@ -21,10 +21,10 @@ where
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.Bifunctor
 import Data.HashMap.Strict qualified as HM
 import Data.HashSet qualified as HS
 import Data.Text qualified as T
+import Lens.Micro.Platform
 import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.Text qualified as PP
@@ -111,8 +111,7 @@ instance PP.Pretty Ty where
 
 
 tTupleInitN :: Int -> Ty -> Ty
-tTupleInitN n (TTuple ts) =
-  TTuple [if k == n then (t, True) else (t, i) | (t, i) <- ts | k <- [1 ..]]
+tTupleInitN n (TTuple ts) = TTuple (ts & ix (n - 1) . _2 .~ True)
 tTupleInitN _ _ = error "tTupleInitN: not TTuple"
 
 
@@ -134,7 +133,7 @@ tsubst a t' (TVar b)
   | otherwise = TVar b
 tsubst _a _t' TInt = TInt
 tsubst a t' (TFix as ts) = TFix as $ fmap (tsubst a t') ts
-tsubst a t' (TTuple ts) = TTuple $ fmap (first $ tsubst a t') ts
+tsubst a t' (TTuple ts) = TTuple (ts <&> _1 %~ tsubst a t')
 tsubst a t' (TExists b t) = TExists b $ tsubst a t' t
 
 
@@ -327,9 +326,9 @@ instance PP.Pretty Decl where
 
 
 instance Fv Tm where
-  fv (Let (Bind x v) e) = HM.delete x $ fv v <> fv e
-  fv (Let (At x _i v) e) = HM.delete x $ fv v <> fv e
-  fv (Let (Bin x _op v1 v2) e) = HM.delete x $ fv v1 <> fv v2 <> fv e
+  fv (Let (Bind x v) e) = fv v <> fv e & at x .~ Nothing
+  fv (Let (At x _i v) e) = fv v <> fv e & at x .~ Nothing
+  fv (Let (Bin x _op v1 v2) e) = fv v1 <> fv v2 <> fv e & at x .~ Nothing
   fv (Let _d _e) = error "No need"
   fv (App v _ts vs) = fv v <> foldMap fv vs
   fv (If0 v e1 e2) = fv v <> fv e1 <> fv e2
@@ -382,15 +381,11 @@ type Env = HM.HashMap Name Ty
 type Tc = ReaderT Env (Either T.Text)
 
 
-extendEnv :: Name -> Ty -> Tc a -> Tc a
-extendEnv x t = local (HM.insert x t)
-
-
 lookupVar :: Name -> Tc Ty
 lookupVar x = do
   env <- ask
   if
-    | Just t <- env HM.!? x -> pure t
+    | Just t <- env ^? ix x -> pure t
     | otherwise -> throwError $ "unknown variable " <> x
 
 
@@ -431,12 +426,12 @@ ckTm' (Halt t v) =
 ckDecl :: Decl -> Tc a -> Tc a
 ckDecl (Bind x v) k = do
   ckAnn v
-  extendEnv x (ty v) k
+  local (at x ?~ ty v) k
 ckDecl (At x i v) k
   | TTuple ts <- ty v
-  , Just t <- ts !? (i - 1) = do
+  , Just t <- ts ^? ix (i - 1) = do
       ckAnn v
-      extendEnv x (fst t) k
+      local (at x ?~ fst t) k
   | otherwise =
       throwError $ "At: v is not TTuple or invalid i: " <> prettyText (ty v)
 ckDecl (Bin x _op v1 v2) k = do
@@ -448,23 +443,23 @@ ckDecl (Bin x _op v1 v2) k = do
   when (ty v2 /= TInt) $
     throwError $
       "Bin: v2 is not TInt, but " <> prettyText (ty v2)
-  extendEnv x TInt k
+  local (at x ?~ TInt) k
 ckDecl (Unpack a x v) k
   | TExists a' t <- ty v = do
       ckAnn v
-      extendEnv x (tsubst a' (TVar a) t) k
+      local (at x ?~ tsubst a' (TVar a) t) k
   | otherwise =
       throwError $ "Unpack: v is not TExists, but " <> prettyText (ty v)
-ckDecl (Malloc x ts) k = extendEnv x (tTupleUninited ts) k
+ckDecl (Malloc x ts) k = local (at x ?~ tTupleUninited ts) k
 ckDecl (Update x v1 i v2) k
   | TTuple ts <- ty v1
-  , Just (t, _) <- ts !? (i - 1) = do
+  , Just (t, _) <- ts ^? ix (i - 1) = do
       ckAnn v1
       ckAnn v2
       when (ty v2 /= t) $
         throwError $
           "Update: type of v2 does not match: " <> prettyText (ty v2)
-      extendEnv x (tTupleInitN i $ ty v1) k
+      local (at x ?~ tTupleInitN i (ty v1)) k
   | otherwise =
       throwError $
         "Update: v1 is not Tuple or invalid i: " <> prettyText (ty v1)
@@ -484,7 +479,7 @@ ckAnn (u `Ann` t) = case u of
   Fix x _as xs e ->
     if
       | TFix _as' _ts <- t ->
-          local (\env -> HM.insert x t env <> HM.fromList xs) $ ckTm' e
+          local ((HM.fromList xs & at x ?~ t) <>) $ ckTm' e
       | otherwise -> throwError $ "Fix: Ann is not TFix, but " <> prettyText t
   Tuple vs -> do
     mapM_ ckAnn vs
