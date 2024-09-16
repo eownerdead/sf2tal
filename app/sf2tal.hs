@@ -5,8 +5,14 @@ import Control.Monad.IO.Class
 import Data.Text.IO qualified as T
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
-import SF2TAL
+import SF2TAL.A qualified as A
+import SF2TAL.C qualified as C
 import SF2TAL.Common
+import SF2TAL.F
+import SF2TAL.H qualified as H
+import SF2TAL.K qualified as K
+import SF2TAL.Middle qualified as M
+import SF2TAL.Tal qualified as Tal
 
 
 factorial :: Tm
@@ -34,25 +40,34 @@ main =
   runExceptT
     ( runUniqT $ do
         e <- liftEither $ ty factorial
-        k <- kProg e
+        k <- K.kProg e
         liftIO $ T.putStrLn "K"
         liftIO $ putDoc $ pretty k
-        liftEither $ ckTm k
+        liftEither $ M.ckTm k
 
-        c <- cProg k
+        c <- C.cProg k
         liftIO $ T.putStrLn "\nC"
         liftIO $ putDoc $ pretty c
-        liftEither $ ckTm c
+        liftEither $ M.ckTm c
 
-        h <- hProg c
+        h <- H.hProg c
         liftIO $ T.putStrLn "\nH"
         liftIO $ putDoc $ pretty h
-        liftEither $ ckProg h
+        liftEither $ M.ckProg h
 
-        !a <- aProg h
+        a <- A.aProg h
         liftIO $ T.putStrLn "\nA"
         liftIO $ putDoc $ pretty a
-        liftEither $ ckProg a
+        liftEither $ M.ckProg a
+
+        (tal, ths) <- Tal.tProg a
+        liftIO $ T.putStrLn "\nTal"
+        liftIO $ putDoc $ Tal.prettyMap colon ths
+        liftIO $ putDoc $ pretty tal
+        liftEither $ Tal.ckProg ths tal
+        tal' <- Tal.exec ths tal
+        liftIO $ T.putStrLn "\nExec"
+        liftIO $ putDoc $ pretty tal'
         pure ()
     )
     >>= \case

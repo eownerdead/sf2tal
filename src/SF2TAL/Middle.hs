@@ -27,7 +27,6 @@ import Data.Text qualified as T
 import Lens.Micro.Platform
 import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as PP
-import Prettyprinter.Render.Text qualified as PP
 import SF2TAL.Common
 import SF2TAL.F (Prim)
 
@@ -38,23 +37,6 @@ class Fv a where
 
 class Ftv a where
   ftv :: a -> HS.HashSet TName
-
-
-brackets' :: PP.Doc a -> PP.Doc a -> PP.Doc a -> [PP.Doc a] -> PP.Doc a
-brackets' l r s xs =
-  PP.cat [PP.nest 2 $ PP.vcat [l, PP.vsep $ PP.punctuate s xs], r]
-
-
-brackets :: [PP.Doc a] -> PP.Doc a
-brackets = brackets' PP.lbracket PP.rbracket PP.comma
-
-
-parens :: [PP.Doc a] -> PP.Doc a
-parens = brackets' PP.lparen PP.rparen PP.comma
-
-
-angles :: [PP.Doc a] -> PP.Doc a
-angles = brackets' PP.langle PP.rangle PP.comma
 
 
 -- | t
@@ -369,10 +351,6 @@ instance PP.Pretty Prog where
       )
       <> PP.hardline
       <> PP.nest 2 (PP.vsep [pretty ("in" :: T.Text), pretty e])
-
-
-prettyText :: PP.Pretty a => a -> T.Text
-prettyText = PP.renderStrict . PP.layoutPretty PP.defaultLayoutOptions . pretty
 
 
 type Env = HM.HashMap Name Ty

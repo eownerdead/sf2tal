@@ -13,10 +13,13 @@ common common
   default-language: GHC2021
   default-extensions:
     DerivingStrategies,
+    DerivingVia,
+    FunctionalDependencies,
     LambdaCase,
     MultiWayIf,
     OverloadedStrings,
     ParallelListComp,
+    TemplateHaskell,
   ghc-options:
     -Wall
     -Wcompat
@@ -43,6 +46,12 @@ library sf2tal-lib
     SF2TAL.C,
     SF2TAL.H,
     SF2TAL.A,
+    SF2TAL.Tal,
+  other-modules:
+    SF2TAL.Tal.Tal,
+    SF2TAL.Tal.FromA,
+    SF2TAL.Tal.Tc,
+    SF2TAL.Tal.Exec,
 
 executable sf2tal
   import: common
