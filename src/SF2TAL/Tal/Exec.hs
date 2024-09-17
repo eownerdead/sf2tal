@@ -19,13 +19,13 @@ import SF2TAL.Tal.Tc
 
 
 data ExecEnv = ExecEnv
-  { execEnvHeaps :: Heaps
-  , execEnvTHeap :: THeap
-  , execEnvRegFile :: RegFile
+  { heaps :: Heaps
+  , tHeap :: THeap
+  , regFile :: RegFile
   }
 
 
-makeFields ''ExecEnv
+makeFieldsId ''ExecEnv
 
 
 type ExecT m = StateT ExecEnv m
@@ -43,7 +43,7 @@ exec ths (Prog hs rs is) = do
   (_, env) <-
     runStateT
       (exec' is)
-      (ExecEnv{execEnvHeaps = hs, execEnvTHeap = ths, execEnvRegFile = rs})
+      (ExecEnv{heaps = hs, tHeap = ths, regFile = rs})
   pure $ env ^. regFile ^?! ix "1"
   where
     exec' :: MonadUniq m => Seq -> ExecT m Seq

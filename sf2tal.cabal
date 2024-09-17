@@ -14,9 +14,11 @@ common common
   default-extensions:
     DerivingStrategies,
     DerivingVia,
+    DuplicateRecordFields,
     FunctionalDependencies,
     LambdaCase,
     MultiWayIf,
+    NoFieldSelectors,
     OverloadedStrings,
     ParallelListComp,
     TemplateHaskell,
@@ -36,6 +38,7 @@ library sf2tal-lib
     text ^>=2.0.2,
     unordered-containers ^>=0.2.20,
     microlens-platform ^>=0.4.3.5,
+    template-haskell ^>=2.20.0.0,
     prettyprinter ^>=1.7.1,
   exposed-modules:
     SF2TAL,

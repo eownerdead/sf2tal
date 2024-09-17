@@ -1,5 +1,7 @@
 module SF2TAL.Common
-  ( int2Text
+  ( classIdFields
+  , makeFieldsId
+  , int2Text
   , TName
   , Name
   , MonadUniq (..)
@@ -13,16 +15,38 @@ module SF2TAL.Common
 where
 
 import Control.Monad.State
+import Data.Char
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as LT
 import Data.Text.Lazy.Builder qualified as LT
 import Data.Text.Lazy.Builder.Int qualified as LT
+import Language.Haskell.TH qualified as TH
+import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.Text qualified as PP
 
 
 int2Text :: Int -> T.Text
 int2Text = LT.toStrict . LT.toLazyText . LT.decimal
+
+
+makeFieldsId :: TH.Name -> TH.DecsQ
+makeFieldsId = makeLensesWith classIdFields
+
+
+classIdFields :: LensRules
+classIdFields =
+  lensRules
+    & createClass
+    .~ True
+    & lensField
+    .~ \_ _ n -> case TH.nameBase n of
+      x : xs ->
+        [ MethodName
+            (TH.mkName $ "Has" <> (toUpper x : xs))
+            (TH.mkName $ x : xs)
+        ]
+      _ -> []
 
 
 type TName = T.Text

@@ -81,7 +81,7 @@ aVal (u `Ann` t) = case u of
     pure (ds, Pack (aTy t') v' (aTy t'') `Ann` aTy t)
   Tuple vs -> do
     let n = length vs
-    let ts = fmap (aTy . ty) vs
+    let ts = fmap (aTy . (^. ty)) vs
     (ds, vs') <- unzip <$> traverse aVal vs
 
     y0 <- freshName

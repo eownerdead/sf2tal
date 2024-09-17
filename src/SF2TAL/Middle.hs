@@ -10,6 +10,8 @@ module SF2TAL.Middle
   , Val (..)
   , appT
   , Ann (..)
+  , val
+  , ty
   , Decl (..)
   , ckProg
   , ckTm
@@ -190,14 +192,6 @@ instance PP.Pretty Ann where
 
 -- pretty (v `Ann` _) = pretty v
 
--- | v[ts]
-appT :: Ann -> [Ty] -> Ann
-appT v [] = val v `Ann` ty v
-appT v@(_ `Ann` (TFix (a : as) ts')) (t : ts) =
-  ((v `AppT` t) `Ann` TFix as (fmap (tsubst a t) ts')) `appT` ts
-appT v ts = error $ "appT: " <> show (v, ts)
-
-
 instance Fv Ann where
   fv (u `Ann` t) = case u of
     Var x -> HM.singleton x t
@@ -353,6 +347,18 @@ instance PP.Pretty Prog where
       <> PP.nest 2 (PP.vsep [pretty ("in" :: T.Text), pretty e])
 
 
+-- Order matters!
+makeFieldsId ''Ann
+
+
+-- | v[ts]
+appT :: Ann -> [Ty] -> Ann
+appT v [] = (v ^. val) `Ann` (v ^. ty)
+appT v@(_ `Ann` (TFix (a : as) ts')) (t : ts) =
+  ((v `AppT` t) `Ann` TFix as (fmap (tsubst a t) ts')) `appT` ts
+appT v ts = error $ "appT: " <> show (v, ts)
+
+
 type Env = HM.HashMap Name Ty
 
 
@@ -372,7 +378,7 @@ ckProg p = runReaderT (ckProg' p) mempty
 
 
 ckProg' :: Prog -> Tc ()
-ckProg' (LetRec xs e) = local (fmap ty xs <>) $ do
+ckProg' (LetRec xs e) = local (fmap (^. ty) xs <>) $ do
   mapM_ ckAnn xs
   ckTm' e
 
@@ -385,62 +391,64 @@ ckTm' :: Tm -> Tc ()
 ckTm' (Let d e) = do
   ckDecl d $ ckTm' e
 ckTm' (App v as vs)
-  | TFix as' ts <- ty v = forM_ (zip ts vs) $ \(t, v') -> do
+  | TFix as' ts <- v ^. ty = forM_ (zip ts vs) $ \(t, v') -> do
       when (length as /= length as') $ throwError "App: length of as"
-      when (ty v' /= t) $
+      when (v' ^. ty /= t) $
         throwError $
-          "App: vs does not match: " <> prettyText (ty v')
-  | otherwise = throwError $ "App: v is not TFix, but " <> prettyText (ty v)
+          "App: vs does not match: " <> prettyText (v' ^. ty)
+  | otherwise = throwError $ "App: v is not TFix, but " <> prettyText (v ^. ty)
 ckTm' (If0 v e1 e2) = do
-  when (ty v /= TInt) $
+  when (v ^. ty /= TInt) $
     throwError $
-      "If0: v is not TInt, but " <> prettyText (ty v)
+      "If0: v is not TInt, but " <> prettyText (v ^. ty)
   ckTm' e1
   ckTm' e2
 ckTm' (Halt t v) =
-  when (ty v /= t) $ throwError $ "Halt: v is not t, but " <> prettyText (ty v)
+  when (v ^. ty /= t) $
+    throwError $
+      "Halt: v is not t, but " <> prettyText (v ^. ty)
 
 
 ckDecl :: Decl -> Tc a -> Tc a
 ckDecl (Bind x v) k = do
   ckAnn v
-  local (at x ?~ ty v) k
+  local (at x ?~ v ^. ty) k
 ckDecl (At x i v) k
-  | TTuple ts <- ty v
+  | TTuple ts <- v ^. ty
   , Just t <- ts ^? ix (i - 1) = do
       ckAnn v
       local (at x ?~ fst t) k
   | otherwise =
-      throwError $ "At: v is not TTuple or invalid i: " <> prettyText (ty v)
+      throwError $ "At: v is not TTuple or invalid i: " <> prettyText (v ^. ty)
 ckDecl (Bin x _op v1 v2) k = do
   ckAnn v1
   ckAnn v2
-  when (ty v1 /= TInt) $
+  when (v1 ^. ty /= TInt) $
     throwError $
-      "Bin: v1 is not TInt, but " <> prettyText (ty v1)
-  when (ty v2 /= TInt) $
+      "Bin: v1 is not TInt, but " <> prettyText (v1 ^. ty)
+  when (v2 ^. ty /= TInt) $
     throwError $
-      "Bin: v2 is not TInt, but " <> prettyText (ty v2)
+      "Bin: v2 is not TInt, but " <> prettyText (v2 ^. ty)
   local (at x ?~ TInt) k
 ckDecl (Unpack a x v) k
-  | TExists a' t <- ty v = do
+  | TExists a' t <- v ^. ty = do
       ckAnn v
       local (at x ?~ tsubst a' (TVar a) t) k
   | otherwise =
-      throwError $ "Unpack: v is not TExists, but " <> prettyText (ty v)
+      throwError $ "Unpack: v is not TExists, but " <> prettyText (v ^. ty)
 ckDecl (Malloc x ts) k = local (at x ?~ tTupleUninited ts) k
 ckDecl (Update x v1 i v2) k
-  | TTuple ts <- ty v1
+  | TTuple ts <- v1 ^. ty
   , Just (t, _) <- ts ^? ix (i - 1) = do
       ckAnn v1
       ckAnn v2
-      when (ty v2 /= t) $
+      when (v2 ^. ty /= t) $
         throwError $
-          "Update: type of v2 does not match: " <> prettyText (ty v2)
-      local (at x ?~ tTupleInitN i (ty v1)) k
+          "Update: type of v2 does not match: " <> prettyText (v2 ^. ty)
+      local (at x ?~ tTupleInitN i (v1 ^. ty)) k
   | otherwise =
       throwError $
-        "Update: v1 is not Tuple or invalid i: " <> prettyText (ty v1)
+        "Update: v1 is not Tuple or invalid i: " <> prettyText (v1 ^. ty)
 
 
 ckAnn :: Ann -> Tc ()
@@ -461,12 +469,12 @@ ckAnn (u `Ann` t) = case u of
       | otherwise -> throwError $ "Fix: Ann is not TFix, but " <> prettyText t
   Tuple vs -> do
     mapM_ ckAnn vs
-    when (tTuple (fmap ty vs) /= t) $
+    when (tTuple (fmap (^. ty) vs) /= t) $
       throwError $
         "Tuple: Ann not match: " <> prettyText t
   v `AppT` t' ->
     if
-      | TFix (a : as) ts <- ty v -> do
+      | TFix (a : as) ts <- v ^. ty -> do
           ckAnn v
           when (TFix as (tsubst a t' <$> ts) /= t) $
             throwError $
@@ -477,7 +485,7 @@ ckAnn (u `Ann` t) = case u of
       | TExists a t2' <- t2 -> do
           ckAnn v
           when (t2 /= t) $ throwError $ "Pack: Ann not match: " <> prettyText t
-          when (ty v /= tsubst a t1 t2') $
+          when (v ^. ty /= tsubst a t1 t2') $
             throwError $
               "Pack: Invalid v: " <> prettyText (tsubst a t1 t2')
       | otherwise ->

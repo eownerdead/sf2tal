@@ -11,20 +11,20 @@ import SF2TAL.Common
 import SF2TAL.Tal.Tal
 
 
-data TcEnv = TcEnv {tcEnvTHeap :: THeap, tcEnvTRegFile :: TRegFile}
+data TcEnv = TcEnv
+  { tHeap :: THeap
+  , tRegFile :: TRegFile
+  }
 
 
-makeFields ''TcEnv
+makeFieldsId ''TcEnv
 
 
 type Tc = ReaderT TcEnv (Either T.Text)
 
 
 ckProg :: THeap -> Prog -> Either T.Text ()
-ckProg ths p =
-  runReaderT
-    (ckProg' p)
-    (TcEnv{tcEnvTHeap = ths, tcEnvTRegFile = mempty})
+ckProg ths p = runReaderT (ckProg' p) (TcEnv{tHeap = ths, tRegFile = mempty})
 
 
 ckProg' :: Prog -> Tc ()

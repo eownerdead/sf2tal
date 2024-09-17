@@ -278,16 +278,16 @@ instance TSubst Seq where
 
 
 data Prog = Prog
-  { progHeaps :: Heaps
-  , progRegFile :: RegFile
-  , progSeqs :: Seq
+  { heaps :: Heaps
+  , regFile :: RegFile
+  , seqs :: Seq
   }
 
 
 deriving stock instance Show Prog
 
 
-makeFields ''Prog
+makeFieldsId ''Prog
 
 
 instance PP.Pretty Prog where

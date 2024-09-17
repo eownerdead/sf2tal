@@ -27,18 +27,18 @@ type Vals = HM.HashMap Name Val
 
 
 data TalEnv = TalEnv
-  { talEnvVals :: Vals
-  , talEnvTCtx :: HS.HashSet TName
-  , talEnvTRegFile :: TRegFile
+  { vals :: Vals
+  , tCtx :: HS.HashSet TName
+  , tRegFile :: TRegFile
   }
 
 
-makeFields ''TalEnv
+makeFieldsId ''TalEnv
 
 
 data TalLog = TalLog
-  { talLogHeaps :: Heaps
-  , talLogTHeap :: THeap
+  { heaps :: Heaps
+  , tHeap :: THeap
   }
 
 
@@ -54,7 +54,7 @@ deriving via (Generically TalLog) instance Semigroup TalLog
 deriving via (Generically TalLog) instance Monoid TalLog
 
 
-makeFields ''TalLog
+makeFieldsId ''TalLog
 
 
 type TalT m a = RWST TalEnv TalLog () m a
@@ -65,12 +65,7 @@ tProg p = do
   (is, hs) <-
     evalRWST
       (tProg' p)
-      ( TalEnv
-          { talEnvVals = mempty
-          , talEnvTCtx = mempty
-          , talEnvTRegFile = mempty
-          }
-      )
+      (TalEnv{vals = mempty, tCtx = mempty, tRegFile = mempty})
       ()
   pure (Prog (hs ^. heaps) mempty is, hs ^. tHeap)
 
@@ -79,9 +74,9 @@ tProg' :: MonadUniq m => M.Prog -> TalT m Seq
 tProg' (M.LetRec xs e) = do
   vs <- traverse (const $ lift freshName) xs
   local (vals .~ fmap Label vs) $ do
-    hs' <- traverse (tHVal . M.val) $ HM.mapKeys (vs HM.!) xs
+    hs' <- traverse (tHVal . (^. M.val)) $ HM.mapKeys (vs HM.!) xs
     is <- tExp e
-    writer (is, TalLog hs' $ tTy . M.ty <$> HM.mapKeys (vs HM.!) xs)
+    writer (is, TalLog hs' $ tTy . (^. M.ty) <$> HM.mapKeys (vs HM.!) xs)
 
 
 tHVal :: MonadUniq m => M.Val -> TalT m HVal
@@ -120,12 +115,12 @@ tExp (M.Let d e) = case d of
     is <-
       local
         ( (vals . at x ?~ Reg r)
-            . (tRegFile . at r ?~ tTy (M.ty v))
+            . (tRegFile . at r ?~ tTy (v ^. M.ty))
         )
         $ tExp e
     pure $ Mov r v' `Seq` is
   M.At x i v
-    | M.TTuple ts <- M.ty v -> do
+    | M.TTuple ts <- v ^. M.ty -> do
         r <- lift freshName
         v' <- tVal v
         is <-
@@ -136,7 +131,7 @@ tExp (M.Let d e) = case d of
             $ tExp e
         pure $ Mov r v' `Seq` Ld r r (i - 1) `Seq` is
     | otherwise ->
-        error $ "At: t is not TTuple, but " <> T.unpack (prettyText $ M.ty v)
+        error $ "At: t is not TTuple, but " <> T.unpack (prettyText $ v ^. M.ty)
   M.Bin x op v1 v2 -> do
     r <- lift freshName
     v1' <- tVal v1
@@ -166,7 +161,7 @@ tExp (M.Let d e) = case d of
         $ tExp e
     pure $ Malloc r (fmap tTy ts) `Seq` is
   M.Update x v1 i v2
-    | M.TTuple ts <- M.ty v1 -> do
+    | M.TTuple ts <- v1 ^. M.ty -> do
         r <- lift freshName
         v1' <- tVal v1
         r' <- lift freshName
@@ -183,7 +178,7 @@ tExp (M.Let d e) = case d of
         pure $ Mov r v1' `Seq` Mov r' v2' `Seq` St r (i - 1) r' `Seq` is
     | otherwise ->
         error $
-          "Update: t is not TTuple, but " <> T.unpack (prettyText $ M.ty v1)
+          "Update: t is not TTuple, but " <> T.unpack (prettyText $ v1 ^. M.ty)
 tExp (M.App v as vs) = do
   unless (null as) $ error "not (null as)"
   r0 <- lift freshName

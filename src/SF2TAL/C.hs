@@ -43,7 +43,7 @@ cExp (App v ts vs) = do
   zEnv <- lift freshName
   ts' <- traverse cTy ts
   vs' <- traverse cVal vs
-  cTy (ty v) >>= \case
+  cTy (v ^. ty) >>= \case
     TExists b (TTuple [(tCode, _), (b', _)]) -> do
       when (TVar b /= b') $ error "cExp: b /= b'"
       pure $
