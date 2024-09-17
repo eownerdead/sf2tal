@@ -1,6 +1,7 @@
 module SF2TAL.C (cProg) where
 
 import Control.Monad (when)
+import Control.Monad.Writer
 import Data.HashMap.Strict qualified as HM
 import Data.HashSet qualified as HS
 import Data.Text qualified as T
@@ -13,28 +14,33 @@ errorK :: Show a => a -> b
 errorK x = error $ "not in K: " <> show x
 
 
-cTy :: MonadUniq m => Ty -> m Ty
+type HoistT m = WriterT (HM.HashMap Name Ann) m
+
+
+cTy :: MonadUniq m => Ty -> HoistT m Ty
 cTy (TVar a) = pure $ TVar a
 cTy TInt = pure TInt
 cTy (TFix as ts) = do
-  b <- freshName
+  b <- lift freshName
   ts' <- traverse cTy ts
   pure $ TExists b $ tTuple [TFix as (TVar b : ts'), TVar b]
 cTy (TTuple ts) = TTuple <$> traverseOf (each . _1) cTy ts
 cTy t@TExists{} = error $ "not in K: " <> show t
 
 
-cProg :: MonadUniq m => Tm -> m Tm
-cProg = cExp
+cProg :: MonadUniq m => Tm -> m Prog
+cProg p = do
+  (e, xs) <- runWriterT $ cExp p
+  pure $ LetRec xs e
 
 
-cExp :: MonadUniq m => Tm -> m Tm
+cExp :: MonadUniq m => Tm -> HoistT m Tm
 cExp (Let d e) = Let <$> cDec d <*> cExp e
 cExp (App v ts vs) = do
-  z <- freshName
+  z <- lift freshName
   v' <- cVal v
-  zCode <- freshName
-  zEnv <- freshName
+  zCode <- lift freshName
+  zEnv <- lift freshName
   ts' <- traverse cTy ts
   vs' <- traverse cVal vs
   cTy (ty v) >>= \case
@@ -50,7 +56,7 @@ cExp (If0 v e1 e2) = If0 <$> cVal v <*> cExp e1 <*> cExp e2
 cExp (Halt t v) = Halt <$> cTy t <*> cVal v
 
 
-cDec :: MonadUniq m => Decl -> m Decl
+cDec :: MonadUniq m => Decl -> HoistT m Decl
 cDec (Bind x v) = Bind x <$> cVal v
 cDec (At x i v) = At x i <$> cVal v
 cDec (Bin x p v1 v2) = Bin x p <$> cVal v1 <*> cVal v2
@@ -59,15 +65,15 @@ cDec d@Malloc{} = errorK d
 cDec d@Update{} = errorK d
 
 
-cVal :: MonadUniq m => Ann -> m Ann
+cVal :: MonadUniq m => Ann -> HoistT m Ann
 cVal v@(u `Ann` t) = case u of
   Var x -> Ann (Var x) <$> cTy t
   IntLit i -> Ann (IntLit i) <$> cTy t
   Tuple vs -> Ann <$> (Tuple <$> traverse cVal vs) <*> cTy t
   Fix x as xs e -> do
     ts' <- traverse (cTy . snd) xs
-    zCode <- freshName
-    zEnv <- freshName
+    zCode <- lift freshName
+    zEnv <- lift freshName
     let ys = fv v
     let bs = HS.toList $ ftv v
     tEnv <- cTy $ tTuple $ HM.elems ys
@@ -88,7 +94,7 @@ cVal v@(u `Ann` t) = case u of
             `Ann` t'
     let vCode =
           Fix
-            zCode
+            ""
             (bs <> as)
             ((zEnv, tEnv) : zip (fmap fst xs) ts')
             ( (if T.null x then id else Let (Bind x pack)) $
@@ -99,8 +105,18 @@ cVal v@(u `Ann` t) = case u of
             )
             `Ann` tRawCode
     vEnv <- Tuple <$> mapM (\(y, s) -> Ann (Var y) <$> cTy s) (HM.toList ys)
-    pure $
-      Pack tEnv (Tuple [vCode, vEnv `Ann` tEnv] `Ann` tTuple [tCode, tEnv]) t'
-        `Ann` t'
+    writer
+      ( Pack
+          tEnv
+          ( Tuple
+              [ (Var zCode `Ann` tRawCode) `appT` fmap TVar bs
+              , vEnv `Ann` tEnv
+              ]
+              `Ann` tTuple [tCode, tEnv]
+          )
+          t'
+          `Ann` t'
+      , HM.singleton zCode vCode
+      )
   e@AppT{} -> errorK e
   e@Pack{} -> errorK e

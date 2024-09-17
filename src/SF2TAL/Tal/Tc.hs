@@ -96,7 +96,7 @@ tySeq (Jmp v) = do
             <> T.pack (show (prettyMap PP.colon trs))
             <> T.pack (show (prettyMap PP.colon trs'))
     t ->
-      throwError $ "Jmp: v is not TCode, but " <> prettyText t <> prettyText v
+      throwError $ "Jmp: v is not TCode, but " <> prettyText t
 tySeq (Halt t) =
   preview (tRegFile . ix "1") >>= \t' ->
     when (t' /= Just t) $

@@ -9,7 +9,6 @@ import SF2TAL.A qualified as A
 import SF2TAL.C qualified as C
 import SF2TAL.Common
 import SF2TAL.F
-import SF2TAL.H qualified as H
 import SF2TAL.K qualified as K
 import SF2TAL.Middle qualified as M
 import SF2TAL.Tal qualified as Tal
@@ -48,14 +47,9 @@ main =
         c <- C.cProg k
         liftIO $ T.putStrLn "\nC"
         liftIO $ putDoc $ pretty c
-        liftEither $ M.ckTm c
+        liftEither $ M.ckProg c
 
-        h <- H.hProg c
-        liftIO $ T.putStrLn "\nH"
-        liftIO $ putDoc $ pretty h
-        liftEither $ M.ckProg h
-
-        a <- A.aProg h
+        a <- A.aProg c
         liftIO $ T.putStrLn "\nA"
         liftIO $ putDoc $ pretty a
         liftEither $ M.ckProg a

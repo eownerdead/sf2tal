@@ -449,7 +449,7 @@ ckAnn (u `Ann` t) = case u of
     t' <- lookupVar x
     when (t /= t') $
       throwError $
-        "Var: Ann: " <> prettyText u <> prettyText t' <> prettyText t
+        "Var: Ann: " <> prettyText u
   IntLit _ ->
     when (t /= TInt) $
       throwError $

@@ -44,7 +44,6 @@ library sf2tal-lib
     SF2TAL.Middle,
     SF2TAL.K,
     SF2TAL.C,
-    SF2TAL.H,
     SF2TAL.A,
     SF2TAL.Tal,
   other-modules:
