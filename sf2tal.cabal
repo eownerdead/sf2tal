@@ -29,17 +29,18 @@ common common
     -Wmissing-deriving-strategies
   build-depends:
     base ^>=4.18.2.1,
+    mtl ^>=2.3.1,
+    text ^>=2.0.2,
+    unordered-containers ^>=0.2.20,
+    microlens-platform ^>=0.4.3.5,
+    prettyprinter ^>=1.7.1,
+
 
 library sf2tal-lib
   import: common
   hs-source-dirs: src
   build-depends:
-    mtl ^>=2.3.1,
-    text ^>=2.0.2,
-    unordered-containers ^>=0.2.20,
-    microlens-platform ^>=0.4.3.5,
     template-haskell ^>=2.20.0.0,
-    prettyprinter ^>=1.7.1,
   exposed-modules:
     SF2TAL,
     SF2TAL.Common,
@@ -55,12 +56,11 @@ library sf2tal-lib
     SF2TAL.Tal.Tc,
     SF2TAL.Tal.Exec,
 
-executable sf2tal
+test-suite sf2tal-test
   import: common
-  hs-source-dirs: app
-  main-is: sf2tal.hs
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: sf2tal-test.hs
   build-depends:
     sf2tal-lib,
-    mtl ^>=2.3.1,
-    text ^>=2.0.2,
-    prettyprinter ^>=1.7.1,
+    hspec ^>=2.11.8,
