@@ -165,6 +165,13 @@ instance PP.Pretty Val where
       <+> pretty t'
 
 
+instance TSubst Val where
+  tsubst a b (Junk t) = Junk $ tsubst a b t
+  tsubst a b (v `AppT` t) = tsubst a b v `AppT` tsubst a b t
+  tsubst a b (Pack t v t') = Pack (tsubst a b t) (tsubst a b v) (tsubst a b t')
+  tsubst _ _ v = v
+
+
 -- | heap values
 data HVal where
   -- | <vs>
@@ -244,7 +251,10 @@ instance PP.Pretty Inst where
 
 
 instance TSubst Inst where
+  tsubst a t (Arith op rd rs v) = Arith op rd rs (tsubst a t v)
   tsubst a t (Malloc rd ts) = Malloc rd $ fmap (tsubst a t) ts
+  tsubst a t (Mov rd v) = Mov rd (tsubst a t v)
+  tsubst a t (Unpack b rd v) = Unpack b rd (tsubst a t v)
   tsubst _ _ i = i
 
 
@@ -273,7 +283,7 @@ instance PP.Pretty Seq where
 
 instance TSubst Seq where
   tsubst a t (Seq i is) = Seq (tsubst a t i) (tsubst a t is)
-  tsubst _ _ (Jmp v) = Jmp v
+  tsubst a t (Jmp v) = Jmp $ tsubst a t v
   tsubst a t (Halt t') = Halt (tsubst a t t')
 
 

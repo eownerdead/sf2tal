@@ -50,7 +50,10 @@ cExp (App v ts vs) = do
         Let (Unpack b z v') $
           Let (At zCode 1 (Var z `Ann` tTuple [tCode, TVar b])) $
             Let (At zEnv 2 (Var z `Ann` tTuple [tCode, TVar b])) $
-              App (Var zCode `Ann` tCode) ts' ([Var zEnv `Ann` TVar b] <> vs')
+              App
+                ((Var zCode `Ann` tCode) `appT` ts')
+                []
+                ([Var zEnv `Ann` TVar b] <> vs')
     t -> error $ "not TExists: " <> show t
 cExp (If0 v e1 e2) = If0 <$> cVal v <*> cExp e1 <*> cExp e2
 cExp (Halt t v) = Halt <$> cTy t <*> cVal v

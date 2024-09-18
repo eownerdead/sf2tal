@@ -390,10 +390,10 @@ ckTm e = runReaderT (ckTm' e) mempty
 ckTm' :: Tm -> Tc ()
 ckTm' (Let d e) = do
   ckDecl d $ ckTm' e
-ckTm' (App v as vs)
-  | TFix as' ts <- v ^. ty = forM_ (zip ts vs) $ \(t, v') -> do
-      when (length as /= length as') $ throwError "App: length of as"
-      when (v' ^. ty /= t) $
+ckTm' (App v bs vs)
+  | TFix as ts <- v ^. ty = forM_ (zip ts vs) $ \(t, v') -> do
+      let t' = foldr (uncurry tsubst) t (zip as bs)
+      when (v' ^. ty /= t') $
         throwError $
           "App: vs does not match: " <> prettyText (v' ^. ty)
   | otherwise = throwError $ "App: v is not TFix, but " <> prettyText (v ^. ty)

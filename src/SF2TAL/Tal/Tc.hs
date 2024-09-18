@@ -135,6 +135,11 @@ tyWVal w = throwError $ "not word value: " <> prettyText w
 
 tyVal :: Val -> Tc Ty
 tyVal (Reg r) = tyR r
+tyVal (AppT v t) =
+  tyVal v >>= \case
+    TCode [] trs -> pure $ TCode [] trs
+    TCode (a : as) trs -> pure $ TCode as $ tsubst a t trs
+    t' -> throwError $ "AppT: w is not TCode, but " <> prettyText t'
 tyVal (Pack _t w t') = do
   _ <- tyVal w
   pure t'
