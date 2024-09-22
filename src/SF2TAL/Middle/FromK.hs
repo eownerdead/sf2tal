@@ -1,12 +1,15 @@
-module SF2TAL.C (cProg) where
+module SF2TAL.Middle.FromK
+  ( cProg
+  )
+where
 
-import Control.Monad (when)
+import Control.Monad
 import Control.Monad.Writer
 import Data.HashMap.Strict qualified as HM
 import Data.HashSet qualified as HS
 import Data.Text qualified as T
 import Lens.Micro.Platform
-import SF2TAL.Middle
+import SF2TAL.Middle.Middle
 import SF2TAL.Utils
 
 

@@ -2,10 +2,7 @@ module Main (main) where
 
 import Control.Monad.Except
 import Data.Text qualified as T
-import SF2TAL.A qualified as A
-import SF2TAL.C qualified as C
 import SF2TAL.F
-import SF2TAL.K qualified as K
 import SF2TAL.Middle qualified as M
 import SF2TAL.Tal qualified as Tal
 import SF2TAL.Utils
@@ -54,13 +51,13 @@ currying =
 run :: Tm -> Either T.Text Tal.Val
 run e = runUniq $ runExceptT $ do
   e' <- liftEither $ ty e
-  k <- K.kProg e'
+  k <- M.kProg e'
   liftEither $ withError ("K: " <>) $ M.ckTm k
 
-  c <- C.cProg k
+  c <- M.cProg k
   liftEither $ withError ("C: " <>) $ M.ckProg c
 
-  a <- A.aProg c
+  a <- M.aProg c
   liftEither $ withError ("A: " <>) $ M.ckProg a
 
   (tal, ths) <- Tal.tProg a

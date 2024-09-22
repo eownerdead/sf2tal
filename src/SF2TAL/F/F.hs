@@ -152,4 +152,3 @@ infixl 7 #*
 ann :: Tm -> Ty
 ann (Ann _e t) = t
 ann x = error $ "unannotated: " <> show x
-

@@ -1,17 +1,20 @@
-module SF2TAL.A (aProg) where
+module SF2TAL.Middle.FromC
+  ( aProg
+  )
+where
 
 import Control.Monad
 import Control.Monad.Writer
 import Lens.Micro.Platform
-import SF2TAL.Middle
+import SF2TAL.Middle.Middle
 import SF2TAL.Utils
 
 
 type AT = WriterT [Decl]
 
 
-errorH :: Show a => a -> b
-errorH x = error $ "not in H: " <> show x
+errorC :: Show a => a -> b
+errorC x = error $ "not in C: " <> show x
 
 
 let' :: Monad m => AT m Tm -> m Tm
@@ -39,7 +42,7 @@ aHval v = error $ "unannotated: " <> show v
 aExp :: MonadUniq m => Tm -> m Tm
 aExp (Let d e) = let' $ aDec d >> aExp e
 aExp (App v [] vs) = let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs
-aExp e@App{} = errorH e
+aExp e@App{} = errorC e
 aExp (If0 v e1 e2) = let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
 aExp (Halt t v) = let' $ Halt (aTy t) <$> aVal v
 
@@ -58,8 +61,8 @@ aDec (Arith x p v1 v2) = do
 aDec (Unpack a x v) = do
   v' <- aVal v
   tell [Unpack a x v']
-aDec d@Malloc{} = errorH d
-aDec d@Update{} = errorH d
+aDec d@Malloc{} = errorC d
+aDec d@Update{} = errorC d
 
 
 aVal :: MonadUniq m => Ann -> AT m Ann
@@ -89,4 +92,4 @@ aVal (u `Ann` t) = case u of
             | i <- [1 ..]
             ]
       )
-  Fix{} -> errorH u
+  Fix{} -> errorC u

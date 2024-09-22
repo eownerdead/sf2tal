@@ -3,15 +3,14 @@ module SF2TAL.F.Tc
   )
 where
 
-
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.HashMap.Strict qualified as HM
 import Data.Text as T
 import Lens.Micro.Platform
-import SF2TAL.Utils
 import SF2TAL.F.F
+import SF2TAL.Utils
 
 
 type Env = HM.HashMap Name Ty
