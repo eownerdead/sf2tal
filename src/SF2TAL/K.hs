@@ -49,11 +49,11 @@ kExp (u `F.Ann` t) k = case u of
   F.At i v -> kExp v $ \x -> do
     y <- freshName
     Let (At y i x) <$> k (Var y `Ann` kTy t)
-  F.Arith op e1 e2 -> do
+  F.Arith p e1 e2 -> do
     kExp e1 $ \x1 -> do
       kExp e2 $ \x2 -> do
         y <- freshName
-        Let (Bin y op x1 x2) <$> k (Var y `Ann` TInt)
+        Let (Arith y p x1 x2) <$> k (Var y `Ann` TInt)
   F.If0 e1 e2 e3 -> do
     kExp e1 $ \x -> do
       e2' <- kExp e2 k

@@ -58,12 +58,12 @@ exec ths (Prog hs rs is) = do
 
 step :: MonadUniq m => Seq -> ExecT m Seq
 step (Seq i is) = case i of
-  Arith op rd rs v -> do
+  Arith p rd rs v -> do
     rs' <- reg rs
     v' <- val v
     case (rs', v') of
       (IntLit irs, IntLit iv) ->
-        let k = case op of
+        let k = case p of
               Add -> irs + iv
               Mul -> irs * iv
               Sub -> irs - iv

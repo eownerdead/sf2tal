@@ -45,7 +45,7 @@ ckHeapVal Tuple{} = pure ()
 
 tySeq :: Seq -> Tc ()
 tySeq (Seq i is) = case i of
-  Arith _op rd rs v -> do
+  Arith _p rd rs v -> do
     tyR rs >>= \t ->
       when (t /= TInt) $
         throwError $

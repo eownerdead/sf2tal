@@ -132,12 +132,12 @@ tExp (M.Let d e) = case d of
         pure $ Mov r v' `Seq` Ld r r (i - 1) `Seq` is
     | otherwise ->
         error $ "At: t is not TTuple, but " <> T.unpack (prettyText $ v ^. M.ty)
-  M.Bin x op v1 v2 -> do
+  M.Arith x p v1 v2 -> do
     r <- lift freshName
     v1' <- tVal v1
     v2' <- tVal v2
     is <- local ((vals . at x ?~ Reg r) . (tRegFile . at r ?~ TInt)) $ tExp e
-    pure $ Mov r v1' `Seq` Arith op r r v2' `Seq` is
+    pure $ Mov r v1' `Seq` Arith p r r v2' `Seq` is
   M.Unpack a x v@(_ `M.Ann` t)
     | M.TExists _b _t' <- t -> do
         r <- lift freshName

@@ -76,7 +76,7 @@ data Tm where
   Tuple :: [Tm] -> Tm
   -- | at i e
   At :: Int -> Tm -> Tm
-  -- | e1 op e2
+  -- | e1 p e2
   Arith :: Prim -> Tm -> Tm -> Tm
   -- | if0(e1, e2, e3)
   If0 :: Tm -> Tm -> Tm -> Tm
@@ -197,12 +197,12 @@ ty' (At i e) = do
   if
     | TTuple ts <- ann e', Just t <- ts ^? ix i -> pure $ At i e' `Ann` t
     | otherwise -> throwError "At: e is not TTuple or invalid i"
-ty' (Arith op e1 e2) = do
+ty' (Arith p e1 e2) = do
   e1' <- ty' e1
-  when (ann e1' /= TInt) $ throwError "Bin: e1 is not TInt"
+  when (ann e1' /= TInt) $ throwError "Arith: e1 is not TInt"
   e2' <- ty' e2
-  when (ann e2' /= TInt) $ throwError "Bin: e2 is not TInt"
-  pure $ Arith op e1' e2' `Ann` TInt
+  when (ann e2' /= TInt) $ throwError "Arith: e2 is not TInt"
+  pure $ Arith p e1' e2' `Ann` TInt
 ty' (If0 v e1 e2) = do
   v' <- ty' v
   when (ann v' /= TInt) $ throwError "If0: v is not TInt"

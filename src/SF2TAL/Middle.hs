@@ -254,8 +254,8 @@ data Decl where
   Bind :: Name -> Ann -> Decl
   -- | K, C, H, A: x = at i v (One-based index)
   At :: Name -> Int -> Ann -> Decl
-  -- | K, C, H, A: x = v1 op v2
-  Bin :: Name -> Prim -> Ann -> Ann -> Decl
+  -- | K, C, H, A: x = v1 p v2
+  Arith :: Name -> Prim -> Ann -> Ann -> Decl
   -- | C, H, A: [a, x] = unpack v
   Unpack :: TName -> Name -> Ann -> Decl
   -- | A: x = malloc ts
@@ -273,10 +273,10 @@ instance PP.Pretty Decl where
     prettyDecl
       (pretty x)
       (pretty ("at" :: T.Text) <+> pretty i <+> pretty v)
-  pretty (Bin x op v1 v2) =
+  pretty (Arith x p v1 v2) =
     prettyDecl
       (pretty x)
-      (PP.sep [parens [pretty v1], pretty op <+> parens [pretty v2]])
+      (PP.sep [parens [pretty v1], pretty p <+> parens [pretty v2]])
   pretty (Unpack a x v) =
     prettyDecl
       (brackets [pretty a, pretty x])
@@ -306,7 +306,7 @@ prettyDecl x v = PP.nest 2 $ PP.sep [x <+> PP.equals, v]
 instance Fv Tm where
   fv (Let (Bind x v) e) = fv v <> fv e & at x .~ Nothing
   fv (Let (At x _i v) e) = fv v <> fv e & at x .~ Nothing
-  fv (Let (Bin x _op v1 v2) e) = fv v1 <> fv v2 <> fv e & at x .~ Nothing
+  fv (Let (Arith x _p v1 v2) e) = fv v1 <> fv v2 <> fv e & at x .~ Nothing
   fv (Let _d _e) = error "No need"
   fv (App v _ts vs) = fv v <> foldMap fv vs
   fv (If0 v e1 e2) = fv v <> fv e1 <> fv e2
@@ -323,7 +323,7 @@ instance Ftv Tm where
 instance Ftv Decl where
   ftv (Bind _x v) = ftv v
   ftv (At _x _i v) = ftv v
-  ftv (Bin _x _op v1 v2) = ftv v1 <> ftv v2
+  ftv (Arith _x _p v1 v2) = ftv v1 <> ftv v2
   ftv _ = error "no need"
 
 
@@ -423,15 +423,15 @@ ckDecl (At x i v) k
       local (at x ?~ fst t) k
   | otherwise =
       throwError $ "At: v is not TTuple or invalid i: " <> prettyText (v ^. ty)
-ckDecl (Bin x _op v1 v2) k = do
+ckDecl (Arith x _p v1 v2) k = do
   ckAnn v1
   ckAnn v2
   when (v1 ^. ty /= TInt) $
     throwError $
-      "Bin: v1 is not TInt, but " <> prettyText (v1 ^. ty)
+      "Arith: v1 is not TInt, but " <> prettyText (v1 ^. ty)
   when (v2 ^. ty /= TInt) $
     throwError $
-      "Bin: v2 is not TInt, but " <> prettyText (v2 ^. ty)
+      "Arith: v2 is not TInt, but " <> prettyText (v2 ^. ty)
   local (at x ?~ TInt) k
 ckDecl (Unpack a x v) k
   | TExists a' t <- v ^. ty = do

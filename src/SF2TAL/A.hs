@@ -58,10 +58,10 @@ aDec (Bind x v) = do
 aDec (At x i v) = do
   (ds, v') <- aVal v
   pure $ ds <> [At x i v']
-aDec (Bin x p v1 v2) = do
+aDec (Arith x p v1 v2) = do
   (ds1, v1') <- aVal v1
   (ds2, v2') <- aVal v2
-  pure $ ds1 <> ds2 <> [Bin x p v1' v2']
+  pure $ ds1 <> ds2 <> [Arith x p v1' v2']
 aDec (Unpack a x v) = do
   (ds, v') <- aVal v
   pure $ ds <> [Unpack a x v']

@@ -229,9 +229,9 @@ prettyInst op rs = PP.hsep $ pretty op : PP.punctuate PP.comma rs
 
 
 instance PP.Pretty Inst where
-  pretty (Arith op rd rs v) = prettyInst op' [pretty rd, pretty rs, pretty v]
+  pretty (Arith p rd rs v) = prettyInst p' [pretty rd, pretty rs, pretty v]
     where
-      op' = case op of
+      p' = case p of
         Add -> "add"
         Mul -> "mul"
         Sub -> "sub"
@@ -251,7 +251,7 @@ instance PP.Pretty Inst where
 
 
 instance TSubst Inst where
-  tsubst a t (Arith op rd rs v) = Arith op rd rs (tsubst a t v)
+  tsubst a t (Arith p rd rs v) = Arith p rd rs (tsubst a t v)
   tsubst a t (Malloc rd ts) = Malloc rd $ fmap (tsubst a t) ts
   tsubst a t (Mov rd v) = Mov rd (tsubst a t v)
   tsubst a t (Unpack b rd v) = Unpack b rd (tsubst a t v)
