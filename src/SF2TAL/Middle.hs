@@ -3,9 +3,9 @@ module SF2TAL.Middle
   , Ftv (..)
   , Ty (..)
   , tTupleInitN
-  , tTupleInitToN
   , tTuple
   , tTupleUninited
+  , tTupleInitedToN
   , tExists
   , Val (..)
   , appT
@@ -99,16 +99,16 @@ tTupleInitN n (TTuple ts) = TTuple (ts & ix (n - 1) . _2 .~ True)
 tTupleInitN _ _ = error "tTupleInitN: not TTuple"
 
 
-tTupleInitToN :: Int -> Ty -> Ty
-tTupleInitToN i ts = foldr tTupleInitN ts [1 .. i]
-
-
 tTuple :: [Ty] -> Ty
 tTuple = TTuple . fmap (,True)
 
 
 tTupleUninited :: [Ty] -> Ty
 tTupleUninited = TTuple . fmap (,False)
+
+
+tTupleInitedToN :: Int -> [Ty] -> Ty
+tTupleInitedToN i ts = foldr tTupleInitN (tTupleUninited ts) [1 .. i]
 
 
 tsubst :: TName -> Ty -> Ty -> Ty

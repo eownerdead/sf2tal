@@ -1,9 +1,6 @@
-{-# LANGUAGE ParallelListComp #-}
-
 module SF2TAL.A (aProg) where
 
 import Control.Monad
-import Data.Bifunctor
 import Data.Foldable
 import Lens.Micro.Platform
 import SF2TAL.Common
@@ -22,7 +19,7 @@ aTy :: Ty -> Ty
 aTy (TVar a) = TVar a
 aTy TInt = TInt
 aTy (TFix as ts) = TFix as (fmap aTy ts)
-aTy (TTuple ts) = TTuple $ fmap (first aTy) ts
+aTy (TTuple ts) = TTuple $ fmap (_1 %~ aTy) ts
 aTy (TExists a t) = TExists a $ aTy t
 
 
@@ -89,11 +86,7 @@ aVal (u `Ann` t) = case u of
     pure
       ( fold ds
           <> [Malloc y0 ts]
-          <> [ Update
-              y
-              (Var y' `Ann` tTupleInitToN (i - 1) (tTupleUninited ts))
-              i
-              v'
+          <> [ Update y (Var y' `Ann` tTupleInitedToN (i - 1) ts) i v'
              | y <- ys
              | y' <- y0 : ys
              | v' <- vs'
