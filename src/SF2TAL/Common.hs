@@ -5,7 +5,10 @@ module SF2TAL.Common
   , TName
   , Name
   , MonadUniq (..)
+  , UniqT
+  , Uniq
   , runUniqT
+  , runUniq
   , brackets
   , parens
   , angles
@@ -14,8 +17,12 @@ module SF2TAL.Common
   )
 where
 
+import Control.Monad.Except
+import Control.Monad.RWS
 import Control.Monad.State
+import Control.Monad.Writer
 import Data.Char
+import Data.Functor.Identity
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as LT
 import Data.Text.Lazy.Builder qualified as LT
@@ -62,15 +69,38 @@ class Monad m => MonadUniq m where
 type UniqT = StateT Int
 
 
-instance Monad m => MonadUniq (UniqT m) where
+type Uniq = UniqT Identity
+
+
+instance {-# OVERLAPS #-} Monad m => MonadUniq (UniqT m) where
   freshName = do
     n <- get
     modify (+ 1)
     pure $ T.pack $ "_" <> show n
 
 
+instance MonadUniq m => MonadUniq (ExceptT e m) where
+  freshName = lift freshName
+
+
+instance (Monoid w, MonadUniq m) => MonadUniq (RWST r w s m) where
+  freshName = lift freshName
+
+
+instance MonadUniq m => MonadUniq (StateT s m) where
+  freshName = lift freshName
+
+
+instance (Monoid w, MonadUniq m) => MonadUniq (WriterT w m) where
+  freshName = lift freshName
+
+
 runUniqT :: Monad m => UniqT m a -> m a
 runUniqT m = evalStateT m 0
+
+
+runUniq :: Uniq a -> a
+runUniq m = evalState m 0
 
 
 brackets' :: PP.Doc a -> PP.Doc a -> PP.Doc a -> [PP.Doc a] -> PP.Doc a

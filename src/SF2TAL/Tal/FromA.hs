@@ -72,7 +72,7 @@ tProg p = do
 
 tProg' :: MonadUniq m => M.Prog -> TalT m Seq
 tProg' (M.LetRec xs e) = do
-  vs <- traverse (const $ lift freshName) xs
+  vs <- traverse (const freshName) xs
   local (vals .~ fmap Label vs) $ do
     hs' <- traverse (tHVal . (^. M.val)) $ HM.mapKeys (vs HM.!) xs
     is <- tExp e
@@ -110,7 +110,7 @@ tVal (u `M.Ann` _) = case u of
 tExp :: MonadUniq m => M.Tm -> TalT m Seq
 tExp (M.Let d e) = case d of
   M.Bind x v -> do
-    r <- lift freshName
+    r <- freshName
     v' <- tVal v
     is <-
       local
@@ -121,7 +121,7 @@ tExp (M.Let d e) = case d of
     pure $ Mov r v' `Seq` is
   M.At x i v
     | M.TTuple ts <- v ^. M.ty -> do
-        r <- lift freshName
+        r <- freshName
         v' <- tVal v
         is <-
           local
@@ -133,14 +133,14 @@ tExp (M.Let d e) = case d of
     | otherwise ->
         error $ "At: t is not TTuple, but " <> T.unpack (prettyText $ v ^. M.ty)
   M.Arith x p v1 v2 -> do
-    r <- lift freshName
+    r <- freshName
     v1' <- tVal v1
     v2' <- tVal v2
     is <- local ((vals . at x ?~ Reg r) . (tRegFile . at r ?~ TInt)) $ tExp e
     pure $ Mov r v1' `Seq` Arith p r r v2' `Seq` is
   M.Unpack a x v@(_ `M.Ann` t)
     | M.TExists _b _t' <- t -> do
-        r <- lift freshName
+        r <- freshName
         v' <- tVal v
         is <-
           local
@@ -152,7 +152,7 @@ tExp (M.Let d e) = case d of
         pure $ Unpack a r v' `Seq` is
     | otherwise -> error $ "t is not TExists, but " <> T.unpack (prettyText t)
   M.Malloc x ts -> do
-    r <- lift freshName
+    r <- freshName
     is <-
       local
         ( (vals . at x ?~ Reg r)
@@ -162,9 +162,9 @@ tExp (M.Let d e) = case d of
     pure $ Malloc r (fmap tTy ts) `Seq` is
   M.Update x v1 i v2
     | M.TTuple ts <- v1 ^. M.ty -> do
-        r <- lift freshName
+        r <- freshName
         v1' <- tVal v1
-        r' <- lift freshName
+        r' <- freshName
         v2' <- tVal v2
         is <-
           local
@@ -181,8 +181,8 @@ tExp (M.Let d e) = case d of
           "Update: t is not TTuple, but " <> T.unpack (prettyText $ v1 ^. M.ty)
 tExp (M.App v as vs) = do
   unless (null as) $ error "not (null as)"
-  r0 <- lift freshName
-  rs <- replicateM (length vs) (lift freshName)
+  r0 <- freshName
+  rs <- replicateM (length vs) freshName
   v' <- tVal v
   vs' <- traverse tVal vs
   pure $
@@ -191,8 +191,8 @@ tExp (M.App v as vs) = do
         : [Mov r' v'' | r' <- rs | v'' <- vs']
           <> [Mov (T.pack $ show r) (Reg r') | r <- [(1 :: Int) ..] | r' <- rs]
 tExp (M.If0 v e1 e2) = do
-  r <- lift freshName
-  l <- lift freshName
+  r <- freshName
+  l <- freshName
   is1 <- tExp e1
   is2 <- tExp e2
   v' <- tVal v

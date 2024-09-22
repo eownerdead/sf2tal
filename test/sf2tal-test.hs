@@ -52,7 +52,7 @@ currying =
 
 
 run :: Tm -> Either T.Text Tal.Val
-run e = runExcept $ runUniqT $ do
+run e = runUniq $ runExceptT $ do
   e' <- liftEither $ ty e
   k <- K.kProg e'
   liftEither $ withError ("K: " <>) $ M.ckTm k

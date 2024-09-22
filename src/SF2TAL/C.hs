@@ -14,14 +14,14 @@ errorK :: Show a => a -> b
 errorK x = error $ "not in K: " <> show x
 
 
-type HoistT m = WriterT (HM.HashMap Name Ann) m
+type CT m = WriterT (HM.HashMap Name Ann) m
 
 
-cTy :: MonadUniq m => Ty -> HoistT m Ty
+cTy :: MonadUniq m => Ty -> CT m Ty
 cTy (TVar a) = pure $ TVar a
 cTy TInt = pure TInt
 cTy (TFix as ts) = do
-  b <- lift freshName
+  b <- freshName
   ts' <- traverse cTy ts
   pure $ TExists b $ tTuple [TFix as (TVar b : ts'), TVar b]
 cTy (TTuple ts) = TTuple <$> traverseOf (each . _1) cTy ts
@@ -34,13 +34,13 @@ cProg p = do
   pure $ LetRec xs e
 
 
-cExp :: MonadUniq m => Tm -> HoistT m Tm
+cExp :: MonadUniq m => Tm -> CT m Tm
 cExp (Let d e) = Let <$> cDec d <*> cExp e
 cExp (App v ts vs) = do
-  z <- lift freshName
+  z <- freshName
   v' <- cVal v
-  zCode <- lift freshName
-  zEnv <- lift freshName
+  zCode <- freshName
+  zEnv <- freshName
   ts' <- traverse cTy ts
   vs' <- traverse cVal vs
   cTy (v ^. ty) >>= \case
@@ -59,7 +59,7 @@ cExp (If0 v e1 e2) = If0 <$> cVal v <*> cExp e1 <*> cExp e2
 cExp (Halt t v) = Halt <$> cTy t <*> cVal v
 
 
-cDec :: MonadUniq m => Decl -> HoistT m Decl
+cDec :: MonadUniq m => Decl -> CT m Decl
 cDec (Bind x v) = Bind x <$> cVal v
 cDec (At x i v) = At x i <$> cVal v
 cDec (Arith x p v1 v2) = Arith x p <$> cVal v1 <*> cVal v2
@@ -68,15 +68,15 @@ cDec d@Malloc{} = errorK d
 cDec d@Update{} = errorK d
 
 
-cVal :: MonadUniq m => Ann -> HoistT m Ann
+cVal :: MonadUniq m => Ann -> CT m Ann
 cVal v@(u `Ann` t) = case u of
   Var x -> Ann (Var x) <$> cTy t
   IntLit i -> Ann (IntLit i) <$> cTy t
   Tuple vs -> Ann <$> (Tuple <$> traverse cVal vs) <*> cTy t
   Fix x as xs e -> do
     ts' <- traverse (cTy . snd) xs
-    zCode <- lift freshName
-    zEnv <- lift freshName
+    zCode <- freshName
+    zEnv <- freshName
     let ys = fv v
     let bs = HS.toList $ ftv v
     tEnv <- cTy $ tTuple $ HM.elems ys

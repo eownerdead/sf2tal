@@ -88,7 +88,7 @@ step (Seq i is) = case i of
           _ -> error $ "Ld: " <> T.unpack (prettyText l) <> " is not Tuple"
       _ -> error "Ld: rs is not label"
   Malloc rd ts -> do
-    l <- lift freshName
+    l <- freshName
     heaps . at l ?= Tuple (fmap Junk ts)
     tHeap . at l ?= TTuple (fmap (,False) ts)
     regFile . at rd ?= Label l

@@ -37,10 +37,10 @@ aHval v = error $ "unannotated: " <> show v
 
 
 aExp :: MonadUniq m => Tm -> m Tm
-aExp (Let d e) = let' $ aDec d >> lift (aExp e)
+aExp (Let d e) = let' $ aDec d >> aExp e
 aExp (App v [] vs) = let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs
 aExp e@App{} = errorH e
-aExp (If0 v e1 e2) = let' $ If0 <$> aVal v <*> lift (aExp e1) <*> lift (aExp e2)
+aExp (If0 v e1 e2) = let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
 aExp (Halt t v) = let' $ Halt (aTy t) <$> aVal v
 
 
@@ -77,8 +77,8 @@ aVal (u `Ann` t) = case u of
     let ts = fmap (aTy . (^. ty)) vs
     vs' <- traverse aVal vs
 
-    y0 <- lift freshName
-    ys <- replicateM n (lift freshName)
+    y0 <- freshName
+    ys <- replicateM n freshName
     writer
       ( Var (last (y0 : ys)) `Ann` aTy t
       , Malloc y0 ts
