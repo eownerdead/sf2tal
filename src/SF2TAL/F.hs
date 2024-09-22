@@ -1,7 +1,12 @@
 module SF2TAL.F
   ( Ty (..)
+  , (#->)
   , Tm (..)
+  , (#$)
   , Prim (..)
+  , (#+)
+  , (#-)
+  , (#*)
   , ty
   , ann
   )
@@ -43,6 +48,16 @@ instance Eq Ty where
   _ == _ = False
 
 
+infixr 5 `TFun`
+
+
+infixr 5 #->
+
+
+(#->) :: Ty -> Ty -> Ty
+(#->) = TFun
+
+
 -- | u
 data Tm where
   -- | x
@@ -62,7 +77,7 @@ data Tm where
   -- | at i e
   At :: Int -> Tm -> Tm
   -- | e1 op e2
-  Bin :: Prim -> Tm -> Tm -> Tm
+  Arith :: Prim -> Tm -> Tm -> Tm
   -- | if0(e1, e2, e3)
   If0 :: Tm -> Tm -> Tm -> Tm
   -- | e: t
@@ -73,6 +88,16 @@ deriving stock instance Eq Tm
 
 
 deriving stock instance Show Tm
+
+
+infixl 9 `App`
+
+
+infixl 9 #$
+
+
+(#$) :: Tm -> Tm -> Tm
+(#$) = App
 
 
 -- | p
@@ -95,6 +120,27 @@ instance Pretty Prim where
   pretty Add = "+"
   pretty Sub = "-"
   pretty Mul = "*"
+
+
+infixl 6 #+
+
+
+(#+) :: Tm -> Tm -> Tm
+(#+) = Arith Add
+
+
+infixl 6 #-
+
+
+(#-) :: Tm -> Tm -> Tm
+(#-) = Arith Sub
+
+
+infixl 7 #*
+
+
+(#*) :: Tm -> Tm -> Tm
+(#*) = Arith Mul
 
 
 ann :: Tm -> Ty
@@ -151,12 +197,12 @@ ty' (At i e) = do
   if
     | TTuple ts <- ann e', Just t <- ts ^? ix i -> pure $ At i e' `Ann` t
     | otherwise -> throwError "At: e is not TTuple or invalid i"
-ty' (Bin op e1 e2) = do
+ty' (Arith op e1 e2) = do
   e1' <- ty' e1
   when (ann e1' /= TInt) $ throwError "Bin: e1 is not TInt"
   e2' <- ty' e2
   when (ann e2' /= TInt) $ throwError "Bin: e2 is not TInt"
-  pure $ Bin op e1' e2' `Ann` TInt
+  pure $ Arith op e1' e2' `Ann` TInt
 ty' (If0 v e1 e2) = do
   v' <- ty' v
   when (ann v' /= TInt) $ throwError "If0: v is not TInt"
