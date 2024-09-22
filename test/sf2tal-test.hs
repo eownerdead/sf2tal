@@ -46,6 +46,29 @@ twice =
         Var "f" `App` (Var "f" `App` Var "x")
 
 
+currying :: Tm
+currying =
+  Fix
+    ""
+    "foo"
+    (TInt `TFun` (TInt `TFun` TInt))
+    TInt
+    ( Fix
+        ""
+        "foo3"
+        (TInt `TFun` TInt)
+        TInt
+        (Var "foo3" `App` IntLit 10)
+        `App` (Var "foo" `App` IntLit 3)
+    )
+    `App` Fix
+      ""
+      "m"
+      TInt
+      (TInt `TFun` TInt)
+      (Fix "" "n" TInt TInt $ Bin Add (Bin Mul (Var "m") (IntLit 2)) (Var "n"))
+
+
 run :: Tm -> Either T.Text Tal.Val
 run e = runExcept $ runUniqT $ do
   e' <- liftEither $ ty e
@@ -71,3 +94,4 @@ main = hspec $ do
   it "twice fibbonacci" $
     run (((twice `AppT` TInt) `App` fibonacci) `App` IntLit 7)
       `shouldBe` Right (Tal.IntLit 233)
+  it "currying" $ run currying `shouldBe` Right (Tal.IntLit 16)
