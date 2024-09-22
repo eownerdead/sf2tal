@@ -12,10 +12,10 @@ where
 import Control.Monad.State
 import Data.Text qualified as T
 import Lens.Micro.Platform
-import SF2TAL.Common
 import SF2TAL.F (Prim (..))
 import SF2TAL.Tal.Tal
 import SF2TAL.Tal.Tc
+import SF2TAL.Utils
 
 
 data ExecEnv = ExecEnv

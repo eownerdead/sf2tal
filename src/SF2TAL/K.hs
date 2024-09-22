@@ -1,8 +1,8 @@
 module SF2TAL.K (kProg) where
 
-import SF2TAL.Common
 import SF2TAL.F qualified as F
 import SF2TAL.Middle
+import SF2TAL.Utils
 
 
 kTy :: F.Ty -> Ty

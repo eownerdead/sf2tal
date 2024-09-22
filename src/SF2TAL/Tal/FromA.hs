@@ -7,9 +7,9 @@ import Data.HashSet qualified as HS
 import Data.Text qualified as T
 import GHC.Generics
 import Lens.Micro.Platform
-import SF2TAL.Common
 import SF2TAL.Middle qualified as M
 import SF2TAL.Tal.Tal
+import SF2TAL.Utils
 
 
 tTy :: M.Ty -> Ty

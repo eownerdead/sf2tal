@@ -1,4 +1,4 @@
-module SF2TAL.Common
+module SF2TAL.Utils
   ( classIdFields
   , makeFieldsId
   , int2Text

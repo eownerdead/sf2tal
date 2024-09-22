@@ -43,7 +43,7 @@ library sf2tal-lib
     template-haskell ^>=2.20.0.0,
   exposed-modules:
     SF2TAL,
-    SF2TAL.Common,
+    SF2TAL.Utils,
     SF2TAL.F,
     SF2TAL.Middle,
     SF2TAL.K,

@@ -29,8 +29,8 @@ import Data.Text qualified as T
 import Lens.Micro.Platform
 import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as PP
-import SF2TAL.Common
 import SF2TAL.F (Prim)
+import SF2TAL.Utils
 
 
 class Fv a where

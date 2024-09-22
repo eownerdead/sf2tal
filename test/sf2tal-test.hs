@@ -4,11 +4,11 @@ import Control.Monad.Except
 import Data.Text qualified as T
 import SF2TAL.A qualified as A
 import SF2TAL.C qualified as C
-import SF2TAL.Common
 import SF2TAL.F
 import SF2TAL.K qualified as K
 import SF2TAL.Middle qualified as M
 import SF2TAL.Tal qualified as Tal
+import SF2TAL.Utils
 import Test.Hspec
 
 

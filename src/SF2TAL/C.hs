@@ -6,8 +6,8 @@ import Data.HashMap.Strict qualified as HM
 import Data.HashSet qualified as HS
 import Data.Text qualified as T
 import Lens.Micro.Platform
-import SF2TAL.Common
 import SF2TAL.Middle
+import SF2TAL.Utils
 
 
 errorK :: Show a => a -> b

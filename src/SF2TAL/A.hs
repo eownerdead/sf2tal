@@ -3,8 +3,8 @@ module SF2TAL.A (aProg) where
 import Control.Monad
 import Control.Monad.Writer
 import Lens.Micro.Platform
-import SF2TAL.Common
 import SF2TAL.Middle
+import SF2TAL.Utils
 
 
 type AT = WriterT [Decl]

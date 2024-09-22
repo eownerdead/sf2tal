@@ -19,7 +19,7 @@ import Data.HashMap.Strict qualified as HM
 import Data.Text as T
 import Lens.Micro.Platform
 import Prettyprinter
-import SF2TAL.Common
+import SF2TAL.Utils
 
 
 -- | t
