@@ -75,7 +75,7 @@ runUniqT m = evalStateT m 0
 
 brackets' :: PP.Doc a -> PP.Doc a -> PP.Doc a -> [PP.Doc a] -> PP.Doc a
 brackets' l r s xs =
-  PP.cat [PP.nest 2 $ PP.vcat [l, PP.vsep $ PP.punctuate s xs], r]
+  PP.nest 2 $ l <> PP.sep (PP.punctuate s xs) <> r
 
 
 brackets :: [PP.Doc a] -> PP.Doc a

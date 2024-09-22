@@ -167,7 +167,7 @@ instance PP.Pretty Val where
         <> PP.dot
         <> PP.nest 2 (PP.line <> pretty e)
   pretty (Tuple vs) = angles $ fmap pretty vs
-  pretty (v `AppT` t) = pretty v <> brackets [pretty t]
+  pretty (v `AppT` t) = parens [pretty v] <> brackets [pretty t]
   pretty (Pack t1 v t2) =
     PP.nest 2 $
       PP.sep
@@ -187,7 +187,8 @@ deriving stock instance Show Ann
 
 instance PP.Pretty Ann where
   pretty (v `Ann` t) =
-    PP.sep [pretty v, PP.nest 2 $ pretty (":" :: T.Text) <+> pretty t]
+    PP.group $
+      pretty v <> PP.nest 2 (PP.line <> pretty (":" :: T.Text) <+> pretty t)
 
 
 -- pretty (v `Ann` _) = pretty v
@@ -231,9 +232,7 @@ deriving stock instance Show Tm
 instance PP.Pretty Tm where
   pretty (Let e1 e2) =
     PP.vsep
-      [ pretty ("let" :: T.Text)
-          <+> pretty e1
-          <+> pretty ("in" :: T.Text)
+      [ pretty ("let" :: T.Text) <+> pretty e1 <+> pretty ("in" :: T.Text)
       , pretty e2
       ]
   pretty (App e1 ts xs) =
@@ -246,7 +245,7 @@ instance PP.Pretty Tm where
   pretty (Halt t v) =
     PP.nest 2 $
       PP.sep
-        [pretty ("halt" :: T.Text) <> brackets [pretty t], pretty v]
+        [pretty ("halt" :: T.Text) <> brackets [pretty t], parens [pretty v]]
 
 
 -- | d
@@ -269,36 +268,39 @@ deriving stock instance Show Decl
 
 
 instance PP.Pretty Decl where
-  pretty (Bind x v) = PP.nest 2 $ PP.sep [pretty x <+> PP.equals, pretty v]
+  pretty (Bind x v) = prettyDecl (pretty x) (pretty v)
   pretty (At x i v) =
-    pretty x
-      <+> PP.equals
-      <+> pretty ("at" :: T.Text)
-      <+> pretty i
-      <+> pretty v
+    prettyDecl
+      (pretty x)
+      (pretty ("at" :: T.Text) <+> pretty i <+> pretty v)
   pretty (Bin x op v1 v2) =
-    pretty x
-      <+> PP.equals
-      <+> parens [pretty v1]
-      <+> pretty op
-      <+> parens [pretty v2]
+    prettyDecl
+      (pretty x)
+      (PP.sep [parens [pretty v1], pretty op <+> parens [pretty v2]])
   pretty (Unpack a x v) =
-    brackets [pretty a, pretty x]
-      <+> PP.equals
-      <+> pretty ("unpack" :: T.Text)
-      <+> PP.parens (pretty v)
+    prettyDecl
+      (brackets [pretty a, pretty x])
+      (pretty ("unpack" :: T.Text) <+> parens [pretty v])
   pretty (Malloc x ts) =
-    pretty x
-      <+> PP.equals
-      <+> pretty ("malloc" :: T.Text)
-      <+> brackets (fmap pretty ts)
+    prettyDecl
+      (pretty x)
+      (pretty ("malloc" :: T.Text) <+> brackets (fmap pretty ts))
   pretty (Update x v1 i v2) =
-    pretty x
-      <+> PP.equals
-      <+> parens [pretty v1]
-      <> brackets [pretty i]
-      <+> pretty ("<-" :: T.Text)
-      <+> pretty v2
+    PP.nest 2 $
+      PP.sep
+        [ pretty x <+> PP.equals
+        , PP.nest 2 $
+            PP.sep
+              [ parens [pretty v1]
+                  <> brackets [pretty i]
+                  <+> pretty ("<-" :: T.Text)
+              , pretty v2
+              ]
+        ]
+
+
+prettyDecl :: PP.Doc a -> PP.Doc a -> PP.Doc a
+prettyDecl x v = PP.nest 2 $ PP.sep [x <+> PP.equals, v]
 
 
 instance Fv Tm where
@@ -335,16 +337,17 @@ deriving stock instance Show Prog
 
 instance PP.Pretty Prog where
   pretty (LetRec xs e) =
-    PP.nest
-      2
-      ( PP.vsep $
-          pretty ("letrec" :: T.Text)
-            : fmap
-              (\(k, v) -> pretty k <+> pretty ("=" :: T.Text) <+> pretty v)
-              (HM.toList xs)
-      )
-      <> PP.hardline
-      <> PP.nest 2 (PP.vsep [pretty ("in" :: T.Text), pretty e])
+    PP.vsep
+      [ PP.nest
+          2
+          ( PP.vsep $
+              pretty ("letrec" :: T.Text)
+                : fmap
+                  (\(k, v) -> prettyDecl (pretty k) (pretty v))
+                  (HM.toList xs)
+          )
+      , PP.nest 2 (PP.vsep [pretty ("in" :: T.Text), pretty e])
+      ]
 
 
 -- Order matters!
