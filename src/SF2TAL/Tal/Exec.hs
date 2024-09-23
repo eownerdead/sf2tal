@@ -1,7 +1,8 @@
 module SF2TAL.Tal.Exec
   ( ExecEnv (..)
-  , heaps
-  , regFile
+  , HasHeaps (..)
+  , HasTHeap (..)
+  , HasRegFile (..)
   , ExecT
   , getProg
   , exec

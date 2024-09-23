@@ -11,8 +11,8 @@ module SF2TAL.Middle.Middle
   , Val (..)
   , appT
   , Ann (..)
-  , val
-  , ty
+  , HasVal (..)
+  , HasTy (..)
   , Decl (..)
   , Tm (..)
   , Prog (..)

@@ -13,6 +13,9 @@ module SF2TAL.Tal.Tal
   , Inst (..)
   , Seq (..)
   , Prog (..)
+  , HasHeaps (..)
+  , HasSeqs (..)
+  , HasRegFile (..)
   )
 where
 
