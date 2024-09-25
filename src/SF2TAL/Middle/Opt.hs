@@ -6,6 +6,7 @@ where
 import Control.Monad.Reader
 import Data.HashMap.Strict qualified as HM
 import Lens.Micro.Platform
+import SF2TAL.F (Prim (..))
 import SF2TAL.Middle
 import SF2TAL.Utils
 
@@ -52,6 +53,13 @@ simp t = runReader (tmSimp t) (tmCntUsed t)
 
 
 tmSimp :: Tm -> Simp Tm
+tmSimp (Let (Arith x p (IntLit n `Ann` _) (IntLit m `Ann` _)) e) =
+  tmSimp $ subst x (IntLit n' `Ann` TInt) e
+  where
+    n' = case p of
+      Add -> n + m
+      Mul -> n * m
+      Sub -> n - m
 tmSimp (Let d e) = Let <$> declSimp d <*> tmSimp e
 tmSimp (App v as vs) =
   annSimp v >>= \case
