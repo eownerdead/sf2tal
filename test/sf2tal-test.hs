@@ -4,6 +4,7 @@ import Control.Monad.Except
 import Data.Text qualified as T
 import SF2TAL.F
 import SF2TAL.Middle qualified as M
+import SF2TAL.Middle.Opt qualified as M
 import SF2TAL.Tal qualified as Tal
 import SF2TAL.Utils
 import Test.Hspec
@@ -54,7 +55,10 @@ run e = runUniq $ runExceptT $ do
   k <- M.kProg e'
   liftEither $ withError ("K: " <>) $ M.ckTm k
 
-  c <- M.cProg k
+  let kSimp = M.simp k
+  liftEither $ withError ("K simp: " <>) $ M.ckTm kSimp
+
+  c <- M.cProg kSimp
   liftEither $ withError ("C: " <>) $ M.ckProg c
 
   a <- M.aProg c

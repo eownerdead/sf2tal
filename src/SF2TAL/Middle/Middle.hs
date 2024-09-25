@@ -1,6 +1,7 @@
 module SF2TAL.Middle.Middle
   ( Fv (..)
   , Ftv (..)
+  , Subst (..)
   , Ty (..)
   , tTupleInitN
   , tTuple
@@ -35,6 +36,10 @@ class Fv a where
 
 class Ftv a where
   ftv :: a -> HS.HashSet TName
+
+
+class Subst a where
+  subst :: Name -> Ann -> a -> a
 
 
 -- | t
@@ -211,6 +216,17 @@ instance Ftv Ann where
     Pack t1 v t2 -> ftv t1 <> ftv v <> ftv t2
 
 
+instance Subst Ann where
+  subst x v' (u `Ann` t) = case u of
+    Var y
+      | x == y -> v'
+      | otherwise -> Var y `Ann` t
+    IntLit i -> IntLit i `Ann` t
+    Fix y as xs e -> Fix y as xs (subst x v' e) `Ann` t
+    Tuple vs -> Tuple (fmap (subst x v') vs) `Ann` t
+    _ -> error "No need"
+
+
 data Tm where
   -- | K, C, H, A: let d in e
   Let :: Decl -> Tm -> Tm
@@ -242,6 +258,30 @@ instance PP.Pretty Tm where
     PP.nest 2 $
       PP.sep
         [pretty ("halt" :: T.Text) <> brackets [pretty t], parens [pretty v]]
+
+
+instance Fv Tm where
+  fv (Let (Bind x v) e) = fv v <> fv e & at x .~ Nothing
+  fv (Let (At x _i v) e) = fv v <> fv e & at x .~ Nothing
+  fv (Let (Arith x _p v1 v2) e) = fv v1 <> fv v2 <> fv e & at x .~ Nothing
+  fv (Let _d _e) = error "No need"
+  fv (App v _ts vs) = fv v <> foldMap fv vs
+  fv (If0 v e1 e2) = fv v <> fv e1 <> fv e2
+  fv (Halt _t v) = fv v
+
+
+instance Ftv Tm where
+  ftv (Let d e) = ftv d <> ftv e
+  ftv (App v ts vs) = ftv v <> foldMap ftv ts <> foldMap ftv vs
+  ftv (If0 v e1 e2) = ftv v <> ftv e1 <> ftv e2
+  ftv (Halt t v) = ftv t <> ftv v
+
+
+instance Subst Tm where
+  subst x v' (Let d e) = Let (subst x v' d) (subst x v' e)
+  subst x v' (App v ts vs) = App (subst x v' v) ts (fmap (subst x v') vs)
+  subst x v' (If0 v e1 e2) = If0 (subst x v' v) (subst x v' e1) (subst x v' e2)
+  subst x v' (Halt t v) = Halt t (subst x v' v)
 
 
 -- | d
@@ -299,28 +339,17 @@ prettyDecl :: PP.Doc a -> PP.Doc a -> PP.Doc a
 prettyDecl x v = PP.nest 2 $ PP.sep [x <+> PP.equals, v]
 
 
-instance Fv Tm where
-  fv (Let (Bind x v) e) = fv v <> fv e & at x .~ Nothing
-  fv (Let (At x _i v) e) = fv v <> fv e & at x .~ Nothing
-  fv (Let (Arith x _p v1 v2) e) = fv v1 <> fv v2 <> fv e & at x .~ Nothing
-  fv (Let _d _e) = error "No need"
-  fv (App v _ts vs) = fv v <> foldMap fv vs
-  fv (If0 v e1 e2) = fv v <> fv e1 <> fv e2
-  fv (Halt _t v) = fv v
-
-
-instance Ftv Tm where
-  ftv (Let d e) = ftv d <> ftv e
-  ftv (App v ts vs) = ftv v <> foldMap ftv ts <> foldMap ftv vs
-  ftv (If0 v e1 e2) = ftv v <> ftv e1 <> ftv e2
-  ftv (Halt t v) = ftv t <> ftv v
-
-
 instance Ftv Decl where
   ftv (Bind _x v) = ftv v
   ftv (At _x _i v) = ftv v
   ftv (Arith _x _p v1 v2) = ftv v1 <> ftv v2
   ftv _ = error "no need"
+
+
+instance Subst Decl where
+  subst x v' (At y i v) = At x i (subst y v' v)
+  subst x v' (Arith y p v1 v2) = Arith y p (subst x v' v1) (subst x v' v2)
+  subst _ _ _ = error "No need"
 
 
 -- | H, A: p

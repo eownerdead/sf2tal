@@ -46,6 +46,7 @@ library sf2tal-lib
     SF2TAL.Utils,
     SF2TAL.F,
     SF2TAL.Middle,
+    SF2TAL.Middle.Opt,
     SF2TAL.Tal,
   other-modules:
     SF2TAL.F.F,
