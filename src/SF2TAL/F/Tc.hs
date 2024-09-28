@@ -6,21 +6,21 @@ where
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.HashMap.Strict qualified as HM
+import Data.Map qualified as M
 import Data.Text as T
 import Lens.Micro.Platform
 import SF2TAL.F.F
 import SF2TAL.Utils
 
 
-type Env = HM.HashMap Name Ty
+type Env = M.Map Name Ty
 
 
 type Tc = ReaderT Env (Either T.Text)
 
 
 extendEnv :: Name -> Ty -> Tc a -> Tc a
-extendEnv x t = local (HM.insert x t)
+extendEnv x t = local (M.insert x t)
 
 
 ty :: Tm -> Either T.Text Tm

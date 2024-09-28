@@ -7,14 +7,14 @@ where
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.HashMap.Strict qualified as HM
+import Data.Map qualified as M
 import Data.Text qualified as T
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
 import SF2TAL.Utils
 
 
-type Env = HM.HashMap Name Ty
+type Env = M.Map Name Ty
 
 
 type Tc = ReaderT Env (Either T.Text)
@@ -25,7 +25,7 @@ lookupVar x = do
   env <- ask
   if
     | Just t <- env ^? ix x -> pure t
-    | otherwise -> throwError $ "unknown variable " <> x
+    | otherwise -> throwError $ "unknown variable " <> int2Text x
 
 
 ckProg :: Prog -> Either T.Text ()
@@ -120,7 +120,9 @@ ckAnn (u `Ann` t) = case u of
   Fix x _as xs e ->
     if
       | TFix _as' _ts <- t ->
-          local ((HM.fromList xs & at x ?~ t) <>) $ ckTm' e
+          local (M.fromList xs <>) $
+            local (maybe id (\x' -> at x' ?~ t) x) $
+              ckTm' e
       | otherwise -> throwError $ "Fix: Ann is not TFix, but " <> prettyText t
   Tuple vs -> do
     mapM_ ckAnn vs

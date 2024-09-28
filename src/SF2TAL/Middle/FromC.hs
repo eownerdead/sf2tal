@@ -34,8 +34,8 @@ aProg (LetRec xs e) = LetRec <$> traverse aHval xs <*> aExp e
 
 
 aHval :: MonadUniq m => Ann -> m Ann
-aHval (Fix "" as xs e `Ann` t) =
-  Ann <$> (Fix "" as (xs <&> _2 %~ aTy) <$> aExp e) <*> pure t
+aHval (Fix Nothing as xs e `Ann` t) =
+  Ann <$> (Fix Nothing as (xs <&> _2 %~ aTy) <$> aExp e) <*> pure t
 aHval v = error $ "unannotated: " <> show v
 
 
@@ -80,8 +80,8 @@ aVal (u `Ann` t) = case u of
     let ts = fmap (aTy . (^. ty)) vs
     vs' <- traverse aVal vs
 
-    y0 <- freshName
-    ys <- replicateM n freshName
+    y0 <- fresh
+    ys <- replicateM n fresh
     writer
       ( Var (last (y0 : ys)) `Ann` aTy t
       , Malloc y0 ts

@@ -2,8 +2,6 @@ module SF2TAL.Utils
   ( classIdFields
   , makeFieldsId
   , int2Text
-  , TName
-  , Name
   , MonadUniq (..)
   , UniqT
   , Uniq
@@ -56,14 +54,8 @@ classIdFields =
       _ -> []
 
 
-type TName = T.Text
-
-
-type Name = T.Text
-
-
 class Monad m => MonadUniq m where
-  freshName :: m Name
+  fresh :: m Int
 
 
 type UniqT = StateT Int
@@ -73,26 +65,23 @@ type Uniq = UniqT Identity
 
 
 instance {-# OVERLAPS #-} Monad m => MonadUniq (UniqT m) where
-  freshName = do
-    n <- get
-    modify (+ 1)
-    pure $ T.pack $ "_" <> show n
+  fresh = state $ \n -> (n, n + 1)
 
 
 instance MonadUniq m => MonadUniq (ExceptT e m) where
-  freshName = lift freshName
+  fresh = lift fresh
 
 
 instance (Monoid w, MonadUniq m) => MonadUniq (RWST r w s m) where
-  freshName = lift freshName
+  fresh = lift fresh
 
 
 instance MonadUniq m => MonadUniq (StateT s m) where
-  freshName = lift freshName
+  fresh = lift fresh
 
 
 instance (Monoid w, MonadUniq m) => MonadUniq (WriterT w m) where
-  freshName = lift freshName
+  fresh = lift fresh
 
 
 runUniqT :: Monad m => UniqT m a -> m a

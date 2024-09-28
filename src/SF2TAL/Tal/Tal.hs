@@ -1,11 +1,13 @@
 module SF2TAL.Tal.Tal
-  ( TSubst (..)
+  ( TName
+  , Name
+  , TSubst (..)
   , IsSubtyOf (..)
   , Ty (..)
   , THeap
   , TRegFile
   , prettyMap
-  , R
+  , R (..)
   , Val (..)
   , HVal (..)
   , Heaps
@@ -19,13 +21,19 @@ module SF2TAL.Tal.Tal
   )
 where
 
-import Data.HashMap.Strict qualified as HM
+import Data.Map qualified as M
 import Data.Text qualified as T
 import Lens.Micro.Platform
 import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim (..))
 import SF2TAL.Utils
+
+
+type TName = Int
+
+
+type Name = Int
 
 
 class TSubst a where
@@ -108,21 +116,21 @@ instance TSubst Ty where
 
 
 -- | heap types
-type THeap = HM.HashMap Name Ty
+type THeap = M.Map Name Ty
 
 
 -- | register file types
-type TRegFile = HM.HashMap R Ty
+type TRegFile = M.Map R Ty
 
 
 instance IsSubtyOf TRegFile where
-  isSubtyOf = flip (HM.isSubmapOfBy (flip isSubtyOf))
+  isSubtyOf = flip (M.isSubmapOfBy (flip isSubtyOf))
 
 
 prettyMap ::
-  (PP.Pretty b, PP.Pretty c) => PP.Doc a -> HM.HashMap b c -> PP.Doc a
+  (PP.Pretty b, PP.Pretty c) => PP.Doc a -> M.Map b c -> PP.Doc a
 prettyMap s xs =
-  braces $ [PP.hsep [pretty k, s, pretty v] | (k, v) <- HM.toList xs]
+  braces $ [PP.hsep [pretty k, s, pretty v] | (k, v) <- M.toList xs]
 
 
 instance TSubst TRegFile where
@@ -130,7 +138,25 @@ instance TSubst TRegFile where
 
 
 -- | registers
-type R = T.Text
+data R
+  = -- | Argument registers
+    A Int
+  | -- | Temporary registers
+    R Int
+
+
+deriving stock instance Show R
+
+
+deriving stock instance Eq R
+
+
+deriving stock instance Ord R
+
+
+instance PP.Pretty R where
+  pretty (A a) = pretty $ "a" <> int2Text a
+  pretty (R r) = pretty $ "r" <> int2Text r
 
 
 -- | word values or small values
@@ -199,11 +225,11 @@ instance PP.Pretty HVal where
 
 
 -- | heaps
-type Heaps = HM.HashMap Name HVal
+type Heaps = M.Map Name HVal
 
 
 -- | register files
-type RegFile = HM.HashMap R Val
+type RegFile = M.Map R Val
 
 
 -- | instructions

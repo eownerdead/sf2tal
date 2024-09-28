@@ -1,5 +1,7 @@
 module SF2TAL.Middle.Middle
-  ( Fv (..)
+  ( TName
+  , Name
+  , Fv (..)
   , Ftv (..)
   , Subst (..)
   , Ty (..)
@@ -20,8 +22,9 @@ module SF2TAL.Middle.Middle
   )
 where
 
-import Data.HashMap.Strict qualified as HM
-import Data.HashSet qualified as HS
+import Data.Foldable
+import Data.Map qualified as M
+import Data.Set qualified as S
 import Data.Text qualified as T
 import Lens.Micro.Platform
 import Prettyprinter (pretty, (<+>))
@@ -30,12 +33,18 @@ import SF2TAL.F (Prim)
 import SF2TAL.Utils
 
 
+type TName = Int
+
+
+type Name = Int
+
+
 class Fv a where
-  fv :: a -> HM.HashMap Name Ty
+  fv :: a -> M.Map Name Ty
 
 
 class Ftv a where
-  ftv :: a -> HS.HashSet TName
+  ftv :: a -> S.Set TName
 
 
 class Subst a where
@@ -123,11 +132,11 @@ tsubst a t' (TExists b t) = TExists b $ tsubst a t' t
 
 
 instance Ftv Ty where
-  ftv (TVar a) = HS.singleton a
+  ftv (TVar a) = S.singleton a
   ftv TInt = mempty
-  ftv (TFix as ts) = foldMap ftv ts `HS.difference` HS.fromList as
+  ftv (TFix as ts) = foldMap ftv ts `S.difference` S.fromList as
   ftv (TTuple ts) = foldMap (ftv . fst) ts
-  ftv (TExists x t) = HS.delete x (ftv t)
+  ftv (TExists x t) = S.delete x (ftv t)
 
 
 -- | exists[as]. t
@@ -142,7 +151,7 @@ data Val where
   -- | K, C, H, A: i
   IntLit :: Int -> Val
   -- | K, C, H, A: fix x(x1: t1, ..., xn: tn). e
-  Fix :: Name -> [TName] -> [(Name, Ty)] -> Tm -> Val
+  Fix :: Maybe Name -> [TName] -> [(Name, Ty)] -> Tm -> Val
   -- | K, C, H, A: <vs>
   Tuple :: [Ann] -> Val
   -- | C, H, A: v[t]
@@ -159,9 +168,9 @@ instance PP.Pretty Val where
   pretty (IntLit i) = pretty i
   pretty (Fix x as xs e) =
     PP.group $
-      ( if T.null x
-          then pretty ("fun" :: T.Text)
-          else pretty ("fix " :: T.Text) <> pretty x
+      ( case x of
+          Just x' -> pretty ("fix " :: T.Text) <> pretty x'
+          Nothing -> pretty ("fun" :: T.Text)
       )
         <> (if null as then mempty else brackets (fmap pretty as))
         <> parens (fmap (\(k, v) -> pretty k <+> PP.colon <+> pretty v) xs)
@@ -196,10 +205,10 @@ instance PP.Pretty Ann where
 
 instance Fv Ann where
   fv (u `Ann` t) = case u of
-    Var x -> HM.singleton x t
+    Var x -> M.singleton x t
     IntLit _ -> mempty
     Fix x _as xs e ->
-      HM.filterWithKey (\k _ -> k `notElem` (x : fmap fst xs)) $ fv e
+      foldr (\y -> at y .~ Nothing) (fv e) (toList x <> (xs <&> (^. _1)))
     Tuple es -> foldMap fv es
     e `AppT` _t' -> fv e
     Pack _a v _t2 -> fv v
@@ -210,7 +219,7 @@ instance Ftv Ann where
     Var _x -> mempty
     IntLit _i -> mempty
     Fix _x as xs e ->
-      (foldMap (ftv . snd) xs <> ftv e) `HS.difference` HS.fromList as
+      (foldMap (ftv . snd) xs <> ftv e) `S.difference` S.fromList as
     Tuple es -> foldMap ftv es
     e `AppT` t -> ftv e <> ftv t
     Pack t1 v t2 -> ftv t1 <> ftv v <> ftv t2
@@ -354,7 +363,7 @@ instance Subst Decl where
 
 -- | H, A: p
 data Prog where
-  LetRec :: HM.HashMap Name Ann -> Tm -> Prog
+  LetRec :: M.Map Name Ann -> Tm -> Prog
 
 
 deriving stock instance Show Prog
@@ -369,7 +378,7 @@ instance PP.Pretty Prog where
               pretty ("letrec" :: T.Text)
                 : fmap
                   (\(k, v) -> prettyDecl (pretty k) (pretty v))
-                  (HM.toList xs)
+                  (M.toList xs)
           )
       , PP.nest 2 (PP.vsep [pretty ("in" :: T.Text), pretty e])
       ]

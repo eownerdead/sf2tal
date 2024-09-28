@@ -2,8 +2,8 @@ module SF2TAL.Tal.FromA (tProg) where
 
 import Control.Monad
 import Control.Monad.RWS
-import Data.HashMap.Strict qualified as HM
-import Data.HashSet qualified as HS
+import Data.Map qualified as M
+import Data.Set qualified as S
 import Data.Text qualified as T
 import GHC.Generics
 import Lens.Micro.Platform
@@ -17,18 +17,18 @@ tTy (M.TVar a) = TVar a
 tTy M.TInt = TInt
 tTy (M.TFix as ts) =
   TCode as $
-    HM.fromList $
-      zip (fmap (T.pack . show) [(1 :: Int) ..]) (fmap tTy ts)
+    M.fromList $
+      zip (fmap A [(1 :: Int) ..]) (fmap tTy ts)
 tTy (M.TTuple ts) = TTuple $ ts <&> _1 %~ tTy
 tTy (M.TExists a t) = TExists a (tTy t)
 
 
-type Vals = HM.HashMap Name Val
+type Vals = M.Map Name Val
 
 
 data TalEnv = TalEnv
   { vals :: Vals
-  , tCtx :: HS.HashSet TName
+  , tCtx :: S.Set TName
   , tRegFile :: TRegFile
   }
 
@@ -72,21 +72,21 @@ tProg p = do
 
 tProg' :: MonadUniq m => M.Prog -> TalT m Seq
 tProg' (M.LetRec xs e) = do
-  vs <- traverse (const freshName) xs
+  vs <- traverse (const fresh) xs
   local (vals .~ fmap Label vs) $ do
-    hs' <- traverse (tHVal . (^. M.val)) $ HM.mapKeys (vs HM.!) xs
+    hs' <- traverse (tHVal . (^. M.val)) $ M.mapKeys (vs M.!) xs
     is <- tExp e
-    writer (is, TalLog hs' $ tTy . (^. M.ty) <$> HM.mapKeys (vs HM.!) xs)
+    writer (is, TalLog hs' $ tTy . (^. M.ty) <$> M.mapKeys (vs M.!) xs)
 
 
 tHVal :: MonadUniq m => M.Val -> TalT m HVal
-tHVal (M.Fix "" as xs e) = do
-  let trs = HM.fromList [(int2Text i, tTy $ x ^. _2) | i <- [1 ..] | x <- xs]
-  let vs' = HM.fromList [(x ^. _1, Reg (int2Text i)) | i <- [1 ..] | x <- xs]
+tHVal (M.Fix Nothing as xs e) = do
+  let trs = M.fromList [(A i, tTy $ x ^. _2) | i <- [1 ..] | x <- xs]
+  let vs' = M.fromList [(x ^. _1, Reg $ A i) | i <- [1 ..] | x <- xs]
   is <-
     local
       ( (vals <>~ vs')
-          . (tCtx .~ HS.fromList as)
+          . (tCtx .~ S.fromList as)
           . (tRegFile .~ trs)
       )
       $ tExp e
@@ -110,7 +110,7 @@ tVal (u `M.Ann` _) = case u of
 tExp :: MonadUniq m => M.Tm -> TalT m Seq
 tExp (M.Let d e) = case d of
   M.Bind x v -> do
-    r <- freshName
+    r <- R <$> fresh
     v' <- tVal v
     is <-
       local
@@ -121,7 +121,7 @@ tExp (M.Let d e) = case d of
     pure $ Mov r v' `Seq` is
   M.At x i v
     | M.TTuple ts <- v ^. M.ty -> do
-        r <- freshName
+        r <- R <$> fresh
         v' <- tVal v
         is <-
           local
@@ -133,26 +133,26 @@ tExp (M.Let d e) = case d of
     | otherwise ->
         error $ "At: t is not TTuple, but " <> T.unpack (prettyText $ v ^. M.ty)
   M.Arith x p v1 v2 -> do
-    r <- freshName
+    r <- R <$> fresh
     v1' <- tVal v1
     v2' <- tVal v2
     is <- local ((vals . at x ?~ Reg r) . (tRegFile . at r ?~ TInt)) $ tExp e
     pure $ Mov r v1' `Seq` Arith p r r v2' `Seq` is
   M.Unpack a x v@(_ `M.Ann` t)
     | M.TExists _b _t' <- t -> do
-        r <- freshName
+        r <- R <$> fresh
         v' <- tVal v
         is <-
           local
             ( (vals . at x ?~ Reg r)
-                . (tCtx %~ HS.insert a)
+                . (tCtx %~ S.insert a)
                 . (tRegFile . at r ?~ tTy t)
             )
             $ tExp e
         pure $ Unpack a r v' `Seq` is
     | otherwise -> error $ "t is not TExists, but " <> T.unpack (prettyText t)
   M.Malloc x ts -> do
-    r <- freshName
+    r <- R <$> fresh
     is <-
       local
         ( (vals . at x ?~ Reg r)
@@ -162,9 +162,9 @@ tExp (M.Let d e) = case d of
     pure $ Malloc r (fmap tTy ts) `Seq` is
   M.Update x v1 i v2
     | M.TTuple ts <- v1 ^. M.ty -> do
-        r <- freshName
+        r <- R <$> fresh
         v1' <- tVal v1
-        r' <- freshName
+        r' <- R <$> fresh
         v2' <- tVal v2
         is <-
           local
@@ -181,18 +181,18 @@ tExp (M.Let d e) = case d of
           "Update: t is not TTuple, but " <> T.unpack (prettyText $ v1 ^. M.ty)
 tExp (M.App v as vs) = do
   unless (null as) $ error "not (null as)"
-  r0 <- freshName
-  rs <- replicateM (length vs) freshName
+  r0 <- R <$> fresh
+  rs <- replicateM (length vs) (R <$> fresh)
   v' <- tVal v
   vs' <- traverse tVal vs
   pure $
     foldr Seq (Jmp $ Reg r0) $
       Mov r0 v'
         : [Mov r' v'' | r' <- rs | v'' <- vs']
-          <> [Mov (T.pack $ show r) (Reg r') | r <- [(1 :: Int) ..] | r' <- rs]
+          <> [Mov (A r) (Reg r') | r <- [(1 :: Int) ..] | r' <- rs]
 tExp (M.If0 v e1 e2) = do
-  r <- freshName
-  l <- freshName
+  r <- R <$> fresh
+  l <- fresh
   is1 <- tExp e1
   is2 <- tExp e2
   v' <- tVal v
@@ -200,9 +200,9 @@ tExp (M.If0 v e1 e2) = do
   trs <- view tRegFile
   tell $
     TalLog
-      (HM.singleton l $ Code (HS.toList tCtx') trs is2)
-      (HM.singleton l $ TCode (HS.toList tCtx') trs)
+      (M.singleton l $ Code (S.toList tCtx') trs is2)
+      (M.singleton l $ TCode (S.toList tCtx') trs)
   pure $ Mov r v' `Seq` Bnz r (Label l) `Seq` is1
 tExp (M.Halt t v) = do
   v' <- tVal v
-  pure $ Mov "1" v' `Seq` Halt (tTy t)
+  pure $ Mov (A 1) v' `Seq` Halt (tTy t)

@@ -1,5 +1,7 @@
 module SF2TAL.F.F
-  ( Ty (..)
+  ( TName
+  , Name
+  , Ty (..)
   , tsubst
   , (#->)
   , Tm (..)
@@ -12,8 +14,14 @@ module SF2TAL.F.F
   )
 where
 
+import Data.Text qualified as T
 import Prettyprinter
-import SF2TAL.Utils
+
+
+type TName = T.Text
+
+
+type Name = T.Text
 
 
 -- | t

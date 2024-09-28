@@ -5,9 +5,8 @@ where
 
 import Control.Monad
 import Control.Monad.Writer
-import Data.HashMap.Strict qualified as HM
-import Data.HashSet qualified as HS
-import Data.Text qualified as T
+import Data.Map qualified as M
+import Data.Set qualified as S
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
 import SF2TAL.Utils
@@ -17,14 +16,14 @@ errorK :: Show a => a -> b
 errorK x = error $ "not in K: " <> show x
 
 
-type CT m = WriterT (HM.HashMap Name Ann) m
+type CT m = WriterT (M.Map Name Ann) m
 
 
 cTy :: MonadUniq m => Ty -> CT m Ty
 cTy (TVar a) = pure $ TVar a
 cTy TInt = pure TInt
 cTy (TFix as ts) = do
-  b <- freshName
+  b <- fresh
   ts' <- traverse cTy ts
   pure $ TExists b $ tTuple [TFix as (TVar b : ts'), TVar b]
 cTy (TTuple ts) = TTuple <$> traverseOf (each . _1) cTy ts
@@ -40,10 +39,10 @@ cProg p = do
 cExp :: MonadUniq m => Tm -> CT m Tm
 cExp (Let d e) = Let <$> cDec d <*> cExp e
 cExp (App v ts vs) = do
-  z <- freshName
+  z <- fresh
   v' <- cVal v
-  zCode <- freshName
-  zEnv <- freshName
+  zCode <- fresh
+  zEnv <- fresh
   ts' <- traverse cTy ts
   vs' <- traverse cVal vs
   cTy (v ^. ty) >>= \case
@@ -78,11 +77,11 @@ cVal v@(u `Ann` t) = case u of
   Tuple vs -> Ann <$> (Tuple <$> traverse cVal vs) <*> cTy t
   Fix x as xs e -> do
     ts' <- traverse (cTy . snd) xs
-    zCode <- freshName
-    zEnv <- freshName
+    zCode <- fresh
+    zEnv <- fresh
     let ys = fv v
-    let bs = HS.toList $ ftv v
-    tEnv <- cTy $ tTuple $ HM.elems ys
+    let bs = S.toList $ ftv v
+    tEnv <- cTy $ tTuple $ M.elems ys
     let tRawCode = TFix (bs <> as) (tEnv : ts')
     let tCode = TFix as (tEnv : ts')
     e' <- cExp e
@@ -100,17 +99,17 @@ cVal v@(u `Ann` t) = case u of
             `Ann` t'
     let vCode =
           Fix
-            ""
+            Nothing
             (bs <> as)
             ((zEnv, tEnv) : zip (fmap fst xs) ts')
-            ( (if T.null x then id else Let (Bind x pack)) $
+            ( maybe id (\x' -> Let $ Bind x' pack) x $
                 foldr
                   (\(i, y) -> Let (At y i (Var zEnv `Ann` tEnv)))
                   e'
-                  (zip [1 ..] (HM.keys ys))
+                  (zip [1 ..] (M.keys ys))
             )
             `Ann` tRawCode
-    vEnv <- Tuple <$> mapM (\(y, s) -> Ann (Var y) <$> cTy s) (HM.toList ys)
+    vEnv <- Tuple <$> mapM (\(y, s) -> Ann (Var y) <$> cTy s) (M.toList ys)
     writer
       ( Pack
           tEnv
@@ -122,7 +121,7 @@ cVal v@(u `Ann` t) = case u of
           )
           t'
           `Ann` t'
-      , HM.singleton zCode vCode
+      , M.singleton zCode vCode
       )
   e@AppT{} -> errorK e
   e@Pack{} -> errorK e

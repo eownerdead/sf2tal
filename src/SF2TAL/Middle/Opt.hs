@@ -4,18 +4,17 @@ module SF2TAL.Middle.Opt
 where
 
 import Control.Monad.Reader
-import Data.HashMap.Strict qualified as HM
+import Data.Map qualified as M
 import Lens.Micro.Platform
 import SF2TAL.F (Prim (..))
 import SF2TAL.Middle
-import SF2TAL.Utils
 
 
-type Cnt = HM.HashMap Name Int
+type Cnt = M.Map Name Int
 
 
 cntUnion :: Cnt -> Cnt -> Cnt
-cntUnion = HM.unionWith (+)
+cntUnion = M.unionWith (+)
 
 
 cntUnions :: [Cnt] -> Cnt
@@ -31,7 +30,7 @@ tmCntUsed (Halt _t v) = annCntUsed v
 
 annCntUsed :: Ann -> Cnt
 annCntUsed (u `Ann` _) = case u of
-  Var x -> HM.singleton x 1
+  Var x -> M.singleton x 1
   IntLit _ -> mempty
   Fix _x _xs _as e -> tmCntUsed e
   Tuple vs -> cntUnions $ fmap annCntUsed vs
@@ -63,13 +62,13 @@ tmSimp (Let (Arith x p (IntLit n `Ann` _) (IntLit m `Ann` _)) e) =
 tmSimp (Let d e) = Let <$> declSimp d <*> tmSimp e
 tmSimp (App v as vs) =
   annSimp v >>= \case
-    Fix "" [] [] e `Ann` _ -> tmSimp e
-    v'@(Fix "" [] ((x, _) : xs) e `Ann` t') ->
+    Fix Nothing [] [] e `Ann` _ -> tmSimp e
+    v'@(Fix Nothing [] ((x, _) : xs) e `Ann` t') ->
       view (at x) >>= \case
-        Nothing -> tmSimp $ App (Fix "" [] xs e `Ann` t') [] (tail vs)
+        Nothing -> tmSimp $ App (Fix Nothing [] xs e `Ann` t') [] (tail vs)
         Just 1 ->
           tmSimp $
-            App (Fix "" [] xs (subst x (head vs) e) `Ann` t') [] (tail vs)
+            App (Fix Nothing [] xs (subst x (head vs) e) `Ann` t') [] (tail vs)
         _ -> App v' as <$> traverse annSimp vs
     v' -> App v' as <$> traverse annSimp vs
 tmSimp (If0 v e1 e2) = If0 <$> annSimp v <*> tmSimp e1 <*> tmSimp e2
@@ -83,10 +82,12 @@ annSimp (u `Ann` t) = (`Ann` t) <$> valSimp u
 valSimp :: Val -> Simp Val
 valSimp (Var x) = pure $ Var x
 valSimp (IntLit i) = pure $ IntLit i
-valSimp (Fix x xs as e) =
-  view (at x) >>= \case
-    Nothing -> Fix "" xs as <$> tmSimp e
-    _ -> Fix x xs as <$> tmSimp e
+valSimp (Fix x xs as e)
+  | Just x' <- x =
+      preview (ix x') >>= \case
+        Nothing -> Fix Nothing xs as <$> tmSimp e
+        _ -> Fix x xs as <$> tmSimp e
+  | otherwise = Fix Nothing xs as <$> tmSimp e
 valSimp (Tuple vs) = Tuple <$> traverse annSimp vs
 valSimp _ = error "No need"
 
