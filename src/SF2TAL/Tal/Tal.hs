@@ -84,35 +84,37 @@ instance IsSubtyOf Ty where
 
 
 instance PP.Pretty Ty where
-  pretty (TVar a) = pretty a
-  pretty TInt = pretty ("int" :: T.Text)
-  pretty (TCode as tRegFile) =
-    pretty ("forall" :: T.Text)
-      <> brackets (fmap pretty as)
-      <> PP.dot
-      <+> prettyMap PP.colon tRegFile
-  pretty (TTuple ts) =
-    angles $
-      fmap
-        ( \(t, i) ->
-            (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
-        )
-        ts
-  pretty (TExists a t) =
-    pretty ("exists" :: T.Text)
-      <+> pretty a
-      <> PP.dot
-      <+> pretty t
+  pretty = \case
+    TVar a -> pretty a
+    TInt -> pretty ("int" :: T.Text)
+    TCode as tRegFile ->
+      pretty ("forall" :: T.Text)
+        <> brackets (fmap pretty as)
+        <> PP.dot
+        <+> prettyMap PP.colon tRegFile
+    TTuple ts ->
+      angles $
+        fmap
+          ( \(t, i) ->
+              (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
+          )
+          ts
+    TExists a t ->
+      pretty ("exists" :: T.Text)
+        <+> pretty a
+        <> PP.dot
+        <+> pretty t
 
 
 instance TSubst Ty where
-  tsubst a t (TVar b)
-    | a == b = t
-    | otherwise = TVar b
-  tsubst _a _t TInt = TInt
-  tsubst a t (TCode as tRegFile) = TCode as $ tsubst a t tRegFile
-  tsubst a t (TTuple ts) = TTuple (ts <&> _1 %~ tsubst a t)
-  tsubst a t (TExists b s) = TExists b $ tsubst a t s
+  tsubst a t = \case
+    TVar b
+      | a == b -> t
+      | otherwise -> TVar b
+    TInt -> TInt
+    TCode as tRegFile -> TCode as $ tsubst a t tRegFile
+    TTuple ts -> TTuple (ts <&> _1 %~ tsubst a t)
+    TExists b s -> TExists b $ tsubst a t s
 
 
 -- | heap types
@@ -155,8 +157,9 @@ deriving stock instance Ord R
 
 
 instance PP.Pretty R where
-  pretty (A a) = pretty $ "a" <> int2Text a
-  pretty (R r) = pretty $ "r" <> int2Text r
+  pretty = \case
+    A a -> pretty $ "a" <> int2Text a
+    R r -> pretty $ "r" <> int2Text r
 
 
 -- | word values or small values
@@ -182,23 +185,25 @@ deriving stock instance Eq Val
 
 
 instance PP.Pretty Val where
-  pretty (Label l) = pretty l
-  pretty (IntLit i) = pretty i
-  pretty (Junk t) = pretty ("?" :: T.Text) <> pretty t
-  pretty (Reg r) = pretty r
-  pretty (AppT w t) = pretty w <> brackets [pretty t]
-  pretty (Pack t v t') =
-    pretty ("pack" :: T.Text)
-      <> brackets [pretty t, pretty v]
-      <+> pretty ("as" :: T.Text)
-      <+> pretty t'
+  pretty = \case
+    Label l -> pretty l
+    IntLit i -> pretty i
+    Junk t -> pretty ("?" :: T.Text) <> pretty t
+    Reg r -> pretty r
+    AppT w t -> pretty w <> brackets [pretty t]
+    Pack t v t' ->
+      pretty ("pack" :: T.Text)
+        <> brackets [pretty t, pretty v]
+        <+> pretty ("as" :: T.Text)
+        <+> pretty t'
 
 
 instance TSubst Val where
-  tsubst a b (Junk t) = Junk $ tsubst a b t
-  tsubst a b (v `AppT` t) = tsubst a b v `AppT` tsubst a b t
-  tsubst a b (Pack t v t') = Pack (tsubst a b t) (tsubst a b v) (tsubst a b t')
-  tsubst _ _ v = v
+  tsubst a b = \case
+    Junk t -> Junk $ tsubst a b t
+    v `AppT` t -> tsubst a b v `AppT` tsubst a b t
+    Pack t v t' -> Pack (tsubst a b t) (tsubst a b v) (tsubst a b t')
+    v -> v
 
 
 -- | heap values
@@ -213,15 +218,16 @@ deriving stock instance Show HVal
 
 
 instance PP.Pretty HVal where
-  pretty (Tuple vs) = angles $ fmap pretty vs
-  pretty (Code as tRegFile is) =
-    PP.nest 2 $
-      PP.vsep
-        [ pretty ("code" :: T.Text)
-            <> brackets (fmap pretty as)
-            <> prettyMap PP.equals tRegFile
-        , pretty is
-        ]
+  pretty = \case
+    Tuple vs -> angles $ fmap pretty vs
+    Code as tRegFile is ->
+      PP.nest 2 $
+        PP.vsep
+          [ pretty ("code" :: T.Text)
+              <> brackets (fmap pretty as)
+              <> prettyMap PP.equals tRegFile
+          , pretty is
+          ]
 
 
 -- | heaps
@@ -258,33 +264,35 @@ prettyInst op rs = PP.hsep $ pretty op : PP.punctuate PP.comma rs
 
 
 instance PP.Pretty Inst where
-  pretty (Arith p rd rs v) = prettyInst p' [pretty rd, pretty rs, pretty v]
-    where
-      p' = case p of
-        Add -> "add"
-        Mul -> "mul"
-        Sub -> "sub"
-  pretty (Bnz r v) = prettyInst "bnz" [pretty r, pretty v]
-  pretty (Ld rd rs i) =
-    prettyInst "ld" [pretty rd, pretty rs <> brackets [pretty i]]
-  pretty (Malloc rd ts) =
-    prettyInst "malloc" [pretty rd <> brackets (fmap pretty ts)]
-  pretty (Mov rd v) = prettyInst "mov" [pretty rd, pretty v]
-  pretty (St rd i rs) =
-    prettyInst "st" [pretty rd <> brackets [pretty i], pretty rs]
-  pretty (Unpack a rd v) =
-    PP.hsep $
-      PP.punctuate
-        PP.comma
-        [pretty ("unpack" :: T.Text) <> brackets [pretty a, pretty rd], pretty v]
+  pretty = \case
+    Arith p rd rs v -> prettyInst p' [pretty rd, pretty rs, pretty v]
+      where
+        p' = case p of
+          Add -> "add"
+          Mul -> "mul"
+          Sub -> "sub"
+    Bnz r v -> prettyInst "bnz" [pretty r, pretty v]
+    Ld rd rs i ->
+      prettyInst "ld" [pretty rd, pretty rs <> brackets [pretty i]]
+    Malloc rd ts ->
+      prettyInst "malloc" [pretty rd <> brackets (fmap pretty ts)]
+    Mov rd v -> prettyInst "mov" [pretty rd, pretty v]
+    St rd i rs ->
+      prettyInst "st" [pretty rd <> brackets [pretty i], pretty rs]
+    Unpack a rd v ->
+      PP.hsep $
+        PP.punctuate
+          PP.comma
+          [pretty ("unpack" :: T.Text) <> brackets [pretty a, pretty rd], pretty v]
 
 
 instance TSubst Inst where
-  tsubst a t (Arith p rd rs v) = Arith p rd rs (tsubst a t v)
-  tsubst a t (Malloc rd ts) = Malloc rd $ fmap (tsubst a t) ts
-  tsubst a t (Mov rd v) = Mov rd (tsubst a t v)
-  tsubst a t (Unpack b rd v) = Unpack b rd (tsubst a t v)
-  tsubst _ _ i = i
+  tsubst a t = \case
+    Arith p rd rs v -> Arith p rd rs (tsubst a t v)
+    Malloc rd ts -> Malloc rd $ fmap (tsubst a t) ts
+    Mov rd v -> Mov rd (tsubst a t v)
+    Unpack b rd v -> Unpack b rd (tsubst a t v)
+    i -> i
 
 
 -- | instruction sequences
@@ -304,16 +312,18 @@ deriving stock instance Show Seq
 
 
 instance PP.Pretty Seq where
-  pretty (Seq i is) = PP.vsep [pretty i, pretty is]
-  pretty (Jmp v) = prettyInst "jmp" [pretty v]
-  pretty (Halt t) =
-    PP.hsep $ PP.punctuate PP.comma ["halt" <> brackets [pretty t]]
+  pretty = \case
+    Seq i is -> PP.vsep [pretty i, pretty is]
+    Jmp v -> prettyInst "jmp" [pretty v]
+    Halt t ->
+      PP.hsep $ PP.punctuate PP.comma ["halt" <> brackets [pretty t]]
 
 
 instance TSubst Seq where
-  tsubst a t (Seq i is) = Seq (tsubst a t i) (tsubst a t is)
-  tsubst a t (Jmp v) = Jmp $ tsubst a t v
-  tsubst a t (Halt t') = Halt (tsubst a t t')
+  tsubst a t = \case
+    Seq i is -> Seq (tsubst a t i) (tsubst a t is)
+    Jmp v -> Jmp $ tsubst a t v
+    Halt t' -> Halt $ tsubst a t t'
 
 
 data Prog = Prog

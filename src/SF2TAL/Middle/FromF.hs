@@ -24,14 +24,15 @@ freshen x =
 
 
 kTy :: MonadUniq m => F.Ty -> KT m Ty
-kTy (F.TVar a) = TVar <$> freshen a
-kTy F.TInt = pure TInt
-kTy (t1 `F.TFun` t2) = TFix mempty <$> sequenceA [kTy t1, kCont t2]
-kTy (F.TForall a t) = do
-  a' <- freshen a
-  t' <- kCont t
-  pure $ TFix [a'] [t']
-kTy (F.TTuple ts) = tTuple <$> traverse kTy ts
+kTy = \case
+  F.TVar a -> TVar <$> freshen a
+  F.TInt -> pure TInt
+  t1 `F.TFun` t2 -> TFix mempty <$> sequenceA [kTy t1, kCont t2]
+  F.TForall a t -> do
+    a' <- freshen a
+    t' <- kCont t
+    pure $ TFix [a'] [t']
+  F.TTuple ts -> tTuple <$> traverse kTy ts
 
 
 kCont :: MonadUniq m => F.Ty -> KT m Ty
@@ -41,8 +42,9 @@ kCont t = do
 
 
 kProg :: MonadUniq m => F.Tm -> m Tm
-kProg v@(F.Ann _u t) = evalStateT (kExp v $ \x -> Halt <$> kTy t <*> pure x) mempty
-kProg x = error $ "unannotated: " <> show x
+kProg = \case
+  v@(F.Ann _u t) -> evalStateT (kExp v $ \x -> Halt <$> kTy t <*> pure x) mempty
+  x -> error $ "unannotated: " <> show x
 
 
 kExp :: MonadUniq m => F.Tm -> (Ann -> KT m Tm) -> KT m Tm

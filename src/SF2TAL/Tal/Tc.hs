@@ -38,8 +38,9 @@ ckHeaps = traverse_ ckHeapVal
 
 
 ckHeapVal :: HVal -> Tc ()
-ckHeapVal (Code _as trs is) = local (tRegFile .~ trs) $ tySeq is
-ckHeapVal Tuple{} = pure ()
+ckHeapVal = \case
+  Code _as trs is -> local (tRegFile .~ trs) $ tySeq is
+  Tuple{} -> pure ()
 
 
 tySeq :: Seq -> Tc ()
@@ -113,31 +114,33 @@ tyRegFile = traverse tyWVal
 
 
 tyWVal :: Val -> Tc Ty
-tyWVal (Label l) =
-  preview (tHeap . ix l) >>= \case
-    Just t -> pure t
-    _ -> throwError $ "Label: undefined label " <> prettyText l
-tyWVal (IntLit _) = pure TInt
-tyWVal (Junk t) = pure t
-tyWVal (AppT w t) =
-  tyWVal w >>= \case
-    TCode [] trs -> pure $ TCode [] trs
-    TCode (a : as) trs -> pure $ TCode as $ tsubst a t trs
-    t' -> throwError $ "AppT: w is not TCode, but " <> prettyText t'
-tyWVal (Pack _t w t') = do
-  _ <- tyWVal w
-  pure t'
-tyWVal w = throwError $ "not word value: " <> prettyText w
+tyWVal = \case
+  Label l ->
+    preview (tHeap . ix l) >>= \case
+      Just t -> pure t
+      _ -> throwError $ "Label: undefined label " <> prettyText l
+  IntLit _ -> pure TInt
+  Junk t -> pure t
+  AppT w t ->
+    tyWVal w >>= \case
+      TCode [] trs -> pure $ TCode [] trs
+      TCode (a : as) trs -> pure $ TCode as $ tsubst a t trs
+      t' -> throwError $ "AppT: w is not TCode, but " <> prettyText t'
+  Pack _t w t' -> do
+    _ <- tyWVal w
+    pure t'
+  w -> throwError $ "not word value: " <> prettyText w
 
 
 tyVal :: Val -> Tc Ty
-tyVal (Reg r) = tyR r
-tyVal (AppT v t) =
-  tyVal v >>= \case
-    TCode [] trs -> pure $ TCode [] trs
-    TCode (a : as) trs -> pure $ TCode as $ tsubst a t trs
-    t' -> throwError $ "AppT: w is not TCode, but " <> prettyText t'
-tyVal (Pack _t w t') = do
-  _ <- tyVal w
-  pure t'
-tyVal x = tyWVal x
+tyVal = \case
+  Reg r -> tyR r
+  AppT v t ->
+    tyVal v >>= \case
+      TCode [] trs -> pure $ TCode [] trs
+      TCode (a : as) trs -> pure $ TCode as $ tsubst a t trs
+      t' -> throwError $ "AppT: w is not TCode, but " <> prettyText t'
+  Pack _t w t' -> do
+    _ <- tyVal w
+    pure t'
+  x -> tyWVal x

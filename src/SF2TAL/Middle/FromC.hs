@@ -22,11 +22,12 @@ let' m = uncurry (foldr Let) <$> runWriterT m
 
 
 aTy :: Ty -> Ty
-aTy (TVar a) = TVar a
-aTy TInt = TInt
-aTy (TFix as ts) = TFix as (fmap aTy ts)
-aTy (TTuple ts) = TTuple $ fmap (_1 %~ aTy) ts
-aTy (TExists a t) = TExists a $ aTy t
+aTy = \case
+  TVar a -> TVar a
+  TInt -> TInt
+  TFix as ts -> TFix as (fmap aTy ts)
+  TTuple ts -> TTuple $ fmap (_1 %~ aTy) ts
+  TExists a t -> TExists a $ aTy t
 
 
 aProg :: MonadUniq m => Prog -> m Prog
@@ -34,35 +35,38 @@ aProg (LetRec xs e) = LetRec <$> traverse aHval xs <*> aExp e
 
 
 aHval :: MonadUniq m => Ann -> m Ann
-aHval (Fix Nothing as xs e `Ann` t) =
-  Ann <$> (Fix Nothing as (xs <&> _2 %~ aTy) <$> aExp e) <*> pure t
-aHval v = error $ "unannotated: " <> show v
+aHval = \case
+  Fix Nothing as xs e `Ann` t ->
+    Ann <$> (Fix Nothing as (xs <&> _2 %~ aTy) <$> aExp e) <*> pure t
+  v -> error $ "unannotated: " <> show v
 
 
 aExp :: MonadUniq m => Tm -> m Tm
-aExp (Let d e) = let' $ aDec d >> aExp e
-aExp (App v [] vs) = let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs
-aExp e@App{} = errorC e
-aExp (If0 v e1 e2) = let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
-aExp (Halt t v) = let' $ Halt (aTy t) <$> aVal v
+aExp = \case
+  Let d e -> let' $ aDec d >> aExp e
+  App v [] vs -> let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs
+  e@App{} -> errorC e
+  If0 v e1 e2 -> let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
+  Halt t v -> let' $ Halt (aTy t) <$> aVal v
 
 
 aDec :: MonadUniq m => Decl -> AT m ()
-aDec (Bind x v) = do
-  v' <- aVal v
-  tell [Bind x v']
-aDec (At x i v) = do
-  v' <- aVal v
-  tell [At x i v']
-aDec (Arith x p v1 v2) = do
-  v1' <- aVal v1
-  v2' <- aVal v2
-  tell [Arith x p v1' v2']
-aDec (Unpack a x v) = do
-  v' <- aVal v
-  tell [Unpack a x v']
-aDec d@Malloc{} = errorC d
-aDec d@Update{} = errorC d
+aDec = \case
+  Bind x v -> do
+    v' <- aVal v
+    tell [Bind x v']
+  At x i v -> do
+    v' <- aVal v
+    tell [At x i v']
+  Arith x p v1 v2 -> do
+    v1' <- aVal v1
+    v2' <- aVal v2
+    tell [Arith x p v1' v2']
+  Unpack a x v -> do
+    v' <- aVal v
+    tell [Unpack a x v']
+  d@Malloc{} -> errorC d
+  d@Update{} -> errorC d
 
 
 aVal :: MonadUniq m => Ann -> AT m Ann

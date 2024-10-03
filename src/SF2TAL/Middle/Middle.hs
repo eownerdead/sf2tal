@@ -80,33 +80,35 @@ instance Eq Ty where
 
 
 instance PP.Pretty Ty where
-  pretty (TVar x) = pretty x
-  pretty TInt = pretty ("int" :: T.Text)
-  pretty (TFix as xs)
-    | null as = body
-    | otherwise = PP.nest 2 $ PP.sep [quantifier, body]
-    where
-      quantifier =
-        pretty ("forall" :: T.Text) <> brackets (fmap pretty as) <> PP.dot
-      body = parens (fmap pretty xs) <+> pretty ("-> void" :: T.Text)
-  pretty (TTuple ts) =
-    angles $
-      fmap
-        ( \(t, i) ->
-            (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
-        )
-        ts
-  pretty (TExists a t) =
-    PP.nest 2 $
-      PP.sep
-        [ pretty ("exists" :: T.Text) <+> pretty a <> PP.dot
-        , pretty t
-        ]
+  pretty = \case
+    TVar x -> pretty x
+    TInt -> pretty ("int" :: T.Text)
+    TFix as xs
+      | null as -> body
+      | otherwise -> PP.nest 2 $ PP.sep [quantifier, body]
+      where
+        quantifier =
+          pretty ("forall" :: T.Text) <> brackets (fmap pretty as) <> PP.dot
+        body = parens (fmap pretty xs) <+> pretty ("-> void" :: T.Text)
+    TTuple ts ->
+      angles $
+        fmap
+          ( \(t, i) ->
+              (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
+          )
+          ts
+    TExists a t ->
+      PP.nest 2 $
+        PP.sep
+          [ pretty ("exists" :: T.Text) <+> pretty a <> PP.dot
+          , pretty t
+          ]
 
 
 tTupleInitN :: Int -> Ty -> Ty
-tTupleInitN n (TTuple ts) = TTuple (ts & ix (n - 1) . _2 .~ True)
-tTupleInitN _ _ = error "tTupleInitN: not TTuple"
+tTupleInitN n = \case
+  TTuple ts -> TTuple (ts & ix (n - 1) . _2 .~ True)
+  _ -> error "tTupleInitN: not TTuple"
 
 
 tTuple :: [Ty] -> Ty
@@ -122,21 +124,23 @@ tTupleInitedToN i ts = foldr tTupleInitN (tTupleUninited ts) [1 .. i]
 
 
 tsubst :: TName -> Ty -> Ty -> Ty
-tsubst a t' (TVar b)
-  | a == b = t'
-  | otherwise = TVar b
-tsubst _a _t' TInt = TInt
-tsubst a t' (TFix as ts) = TFix as $ fmap (tsubst a t') ts
-tsubst a t' (TTuple ts) = TTuple (ts <&> _1 %~ tsubst a t')
-tsubst a t' (TExists b t) = TExists b $ tsubst a t' t
+tsubst a t' = \case
+  TVar b
+    | a == b -> t'
+    | otherwise -> TVar b
+  TInt -> TInt
+  TFix as ts -> TFix as $ fmap (tsubst a t') ts
+  TTuple ts -> TTuple (ts <&> _1 %~ tsubst a t')
+  TExists b t -> TExists b $ tsubst a t' t
 
 
 instance Ftv Ty where
-  ftv (TVar a) = S.singleton a
-  ftv TInt = mempty
-  ftv (TFix as ts) = foldMap ftv ts `S.difference` S.fromList as
-  ftv (TTuple ts) = foldMap (ftv . fst) ts
-  ftv (TExists x t) = S.delete x (ftv t)
+  ftv = \case
+    TVar a -> S.singleton a
+    TInt -> mempty
+    TFix as ts -> foldMap ftv ts `S.difference` S.fromList as
+    TTuple ts -> foldMap (ftv . fst) ts
+    TExists x t -> S.delete x (ftv t)
 
 
 -- | exists[as]. t
@@ -164,28 +168,29 @@ deriving stock instance Show Val
 
 
 instance PP.Pretty Val where
-  pretty (Var x) = pretty x
-  pretty (IntLit i) = pretty i
-  pretty (Fix x as xs e) =
-    PP.group $
-      ( case x of
-          Just x' -> pretty ("fix " :: T.Text) <> pretty x'
-          Nothing -> pretty ("fun" :: T.Text)
-      )
-        <> (if null as then mempty else brackets (fmap pretty as))
-        <> parens (fmap (\(k, v) -> pretty k <+> PP.colon <+> pretty v) xs)
-        <> PP.dot
-        <> PP.nest 2 (PP.line <> pretty e)
-  pretty (Tuple vs) = angles $ fmap pretty vs
-  pretty (v `AppT` t) = parens [pretty v] <> brackets [pretty t]
-  pretty (Pack t1 v t2) =
-    PP.nest 2 $
-      PP.sep
-        [ pretty ("pack" :: T.Text)
-            <+> brackets [pretty t1, pretty v]
-            <+> pretty ("as" :: T.Text)
-        , pretty t2
-        ]
+  pretty = \case
+    Var x -> pretty x
+    IntLit i -> pretty i
+    Fix x as xs e ->
+      PP.group $
+        ( case x of
+            Just x' -> pretty ("fix " :: T.Text) <> pretty x'
+            Nothing -> pretty ("fun" :: T.Text)
+        )
+          <> (if null as then mempty else brackets (fmap pretty as))
+          <> parens (fmap (\(k, v) -> pretty k <+> PP.colon <+> pretty v) xs)
+          <> PP.dot
+          <> PP.nest 2 (PP.line <> pretty e)
+    Tuple vs -> angles $ fmap pretty vs
+    v `AppT` t -> parens [pretty v] <> brackets [pretty t]
+    Pack t1 v t2 ->
+      PP.nest 2 $
+        PP.sep
+          [ pretty ("pack" :: T.Text)
+              <+> brackets [pretty t1, pretty v]
+              <+> pretty ("as" :: T.Text)
+          , pretty t2
+          ]
 
 
 -- | v
@@ -251,46 +256,50 @@ deriving stock instance Show Tm
 
 
 instance PP.Pretty Tm where
-  pretty (Let e1 e2) =
-    PP.vsep
-      [ pretty ("let" :: T.Text) <+> pretty e1 <+> pretty ("in" :: T.Text)
-      , pretty e2
-      ]
-  pretty (App e1 ts xs) =
-    parens [pretty e1]
-      <> (if null ts then mempty else brackets (fmap pretty ts))
-      <> parens (fmap pretty xs)
-  pretty (If0 v e1 e2) =
-    pretty ("if0" :: T.Text)
-      <> parens [pretty v, pretty e1, pretty e2]
-  pretty (Halt t v) =
-    PP.nest 2 $
-      PP.sep
-        [pretty ("halt" :: T.Text) <> brackets [pretty t], parens [pretty v]]
+  pretty = \case
+    Let e1 e2 ->
+      PP.vsep
+        [ pretty ("let" :: T.Text) <+> pretty e1 <+> pretty ("in" :: T.Text)
+        , pretty e2
+        ]
+    App e1 ts xs ->
+      parens [pretty e1]
+        <> (if null ts then mempty else brackets (fmap pretty ts))
+        <> parens (fmap pretty xs)
+    If0 v e1 e2 ->
+      pretty ("if0" :: T.Text)
+        <> parens [pretty v, pretty e1, pretty e2]
+    Halt t v ->
+      PP.nest 2 $
+        PP.sep
+          [pretty ("halt" :: T.Text) <> brackets [pretty t], parens [pretty v]]
 
 
 instance Fv Tm where
-  fv (Let (Bind x v) e) = fv v <> fv e & at x .~ Nothing
-  fv (Let (At x _i v) e) = fv v <> fv e & at x .~ Nothing
-  fv (Let (Arith x _p v1 v2) e) = fv v1 <> fv v2 <> fv e & at x .~ Nothing
-  fv (Let _d _e) = error "No need"
-  fv (App v _ts vs) = fv v <> foldMap fv vs
-  fv (If0 v e1 e2) = fv v <> fv e1 <> fv e2
-  fv (Halt _t v) = fv v
+  fv = \case
+    Let (Bind x v) e -> fv v <> fv e & at x .~ Nothing
+    Let (At x _i v) e -> fv v <> fv e & at x .~ Nothing
+    Let (Arith x _p v1 v2) e -> fv v1 <> fv v2 <> fv e & at x .~ Nothing
+    Let _d _e -> error "No need"
+    App v _ts vs -> fv v <> foldMap fv vs
+    If0 v e1 e2 -> fv v <> fv e1 <> fv e2
+    Halt _t v -> fv v
 
 
 instance Ftv Tm where
-  ftv (Let d e) = ftv d <> ftv e
-  ftv (App v ts vs) = ftv v <> foldMap ftv ts <> foldMap ftv vs
-  ftv (If0 v e1 e2) = ftv v <> ftv e1 <> ftv e2
-  ftv (Halt t v) = ftv t <> ftv v
+  ftv = \case
+    Let d e -> ftv d <> ftv e
+    App v ts vs -> ftv v <> foldMap ftv ts <> foldMap ftv vs
+    If0 v e1 e2 -> ftv v <> ftv e1 <> ftv e2
+    Halt t v -> ftv t <> ftv v
 
 
 instance Subst Tm where
-  subst x v' (Let d e) = Let (subst x v' d) (subst x v' e)
-  subst x v' (App v ts vs) = App (subst x v' v) ts (fmap (subst x v') vs)
-  subst x v' (If0 v e1 e2) = If0 (subst x v' v) (subst x v' e1) (subst x v' e2)
-  subst x v' (Halt t v) = Halt t (subst x v' v)
+  subst x v' = \case
+    Let d e -> Let (subst x v' d) (subst x v' e)
+    App v ts vs -> App (subst x v' v) ts (fmap (subst x v') vs)
+    If0 v e1 e2 -> If0 (subst x v' v) (subst x v' e1) (subst x v' e2)
+    Halt t v -> Halt t (subst x v' v)
 
 
 -- | d
@@ -313,35 +322,36 @@ deriving stock instance Show Decl
 
 
 instance PP.Pretty Decl where
-  pretty (Bind x v) = prettyDecl (pretty x) (pretty v)
-  pretty (At x i v) =
-    prettyDecl
-      (pretty x)
-      (pretty ("at" :: T.Text) <+> pretty i <+> pretty v)
-  pretty (Arith x p v1 v2) =
-    prettyDecl
-      (pretty x)
-      (PP.sep [parens [pretty v1], pretty p <+> parens [pretty v2]])
-  pretty (Unpack a x v) =
-    prettyDecl
-      (brackets [pretty a, pretty x])
-      (pretty ("unpack" :: T.Text) <+> parens [pretty v])
-  pretty (Malloc x ts) =
-    prettyDecl
-      (pretty x)
-      (pretty ("malloc" :: T.Text) <+> brackets (fmap pretty ts))
-  pretty (Update x v1 i v2) =
-    PP.nest 2 $
-      PP.sep
-        [ pretty x <+> PP.equals
-        , PP.nest 2 $
-            PP.sep
-              [ parens [pretty v1]
-                  <> brackets [pretty i]
-                  <+> pretty ("<-" :: T.Text)
-              , pretty v2
-              ]
-        ]
+  pretty = \case
+    Bind x v -> prettyDecl (pretty x) (pretty v)
+    At x i v ->
+      prettyDecl
+        (pretty x)
+        (pretty ("at" :: T.Text) <+> pretty i <+> pretty v)
+    Arith x p v1 v2 ->
+      prettyDecl
+        (pretty x)
+        (PP.sep [parens [pretty v1], pretty p <+> parens [pretty v2]])
+    Unpack a x v ->
+      prettyDecl
+        (brackets [pretty a, pretty x])
+        (pretty ("unpack" :: T.Text) <+> parens [pretty v])
+    Malloc x ts ->
+      prettyDecl
+        (pretty x)
+        (pretty ("malloc" :: T.Text) <+> brackets (fmap pretty ts))
+    Update x v1 i v2 ->
+      PP.nest 2 $
+        PP.sep
+          [ pretty x <+> PP.equals
+          , PP.nest 2 $
+              PP.sep
+                [ parens [pretty v1]
+                    <> brackets [pretty i]
+                    <+> pretty ("<-" :: T.Text)
+                , pretty v2
+                ]
+          ]
 
 
 prettyDecl :: PP.Doc a -> PP.Doc a -> PP.Doc a
@@ -349,16 +359,18 @@ prettyDecl x v = PP.nest 2 $ PP.sep [x <+> PP.equals, v]
 
 
 instance Ftv Decl where
-  ftv (Bind _x v) = ftv v
-  ftv (At _x _i v) = ftv v
-  ftv (Arith _x _p v1 v2) = ftv v1 <> ftv v2
-  ftv _ = error "no need"
+  ftv = \case
+    Bind _x v -> ftv v
+    At _x _i v -> ftv v
+    Arith _x _p v1 v2 -> ftv v1 <> ftv v2
+    _ -> error "no need"
 
 
 instance Subst Decl where
-  subst x v' (At y i v) = At x i (subst y v' v)
-  subst x v' (Arith y p v1 v2) = Arith y p (subst x v' v1) (subst x v' v2)
-  subst _ _ _ = error "No need"
+  subst x v' = \case
+    At y i v -> At x i (subst y v' v)
+    Arith y p v1 v2 -> Arith y p (subst x v' v1) (subst x v' v2)
+    _ -> error "No need"
 
 
 -- | H, A: p

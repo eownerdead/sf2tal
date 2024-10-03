@@ -144,7 +144,8 @@ reg r =
 
 
 val :: MonadUniq m => Val -> ExecT m Val
-val (Reg r) = reg r
-val (AppT v t) = AppT <$> val v <*> pure t
-val (Pack t v t') = Pack t <$> val v <*> pure t'
-val w = pure w
+val = \case
+  Reg r -> reg r
+  AppT v t -> AppT <$> val v <*> pure t
+  Pack t v t' -> Pack t <$> val v <*> pure t'
+  w -> pure w
