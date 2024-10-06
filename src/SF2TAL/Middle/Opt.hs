@@ -8,6 +8,7 @@ import Data.Map qualified as M
 import Lens.Micro.Platform
 import SF2TAL.F (Prim (..))
 import SF2TAL.Middle
+import SF2TAL.Utils
 
 
 type Cnt = M.Map Name Int
@@ -21,36 +22,19 @@ cntUnions :: [Cnt] -> Cnt
 cntUnions = foldr cntUnion mempty
 
 
-tmCntUsed :: Tm -> Cnt
-tmCntUsed = \case
-  Let d e -> declCntUsed d `cntUnion` tmCntUsed e
-  App v _as vs -> cntUnions (annCntUsed v : fmap annCntUsed vs)
-  If0 v e1 e2 -> cntUnions [annCntUsed v, tmCntUsed e1, tmCntUsed e2]
-  Halt _t v -> annCntUsed v
-
-
-annCntUsed :: Ann -> Cnt
-annCntUsed (u `Ann` _) = case u of
-  Var x -> M.singleton x 1
-  IntLit _ -> mempty
-  Fix _x _xs _as e -> tmCntUsed e
-  Tuple vs -> cntUnions $ fmap annCntUsed vs
-  AppT v _t -> annCntUsed v
-  Pack _t1 v _t2 -> annCntUsed v
-
-
-declCntUsed :: Decl -> Cnt
-declCntUsed = \case
-  At _x _i v -> annCntUsed v
-  Arith _x _p v1 v2 -> annCntUsed v1 `cntUnion` annCntUsed v2
-  _ -> error "No need"
+cntUsed :: Tm -> Cnt
+cntUsed e =
+  cntUnions
+    [ M.singleton x 1
+    | Var x `Ann` _ <- universeOnOf subAnns subAnns e
+    ]
 
 
 type Simp = Reader Cnt
 
 
 simp :: Tm -> Tm
-simp t = runReader (tmSimp t) (tmCntUsed t)
+simp t = runReader (tmSimp t) (cntUsed t)
 
 
 tmSimp :: Tm -> Simp Tm
@@ -62,7 +46,7 @@ tmSimp = \case
         Add -> n + m
         Mul -> n * m
         Sub -> n - m
-  Let d e -> Let <$> declSimp d <*> tmSimp e
+  Let d e -> Let <$> subAnns annSimp d <*> tmSimp e
   App v as vs ->
     annSimp v >>= \case
       Fix Nothing [] [] e `Ann` _ -> tmSimp e
@@ -79,25 +63,11 @@ tmSimp = \case
 
 
 annSimp :: Ann -> Simp Ann
-annSimp (u `Ann` t) = (`Ann` t) <$> valSimp u
-
-
-valSimp :: Val -> Simp Val
-valSimp = \case
-  Var x -> pure $ Var x
-  IntLit i -> pure $ IntLit i
+annSimp = subAnns $ \(u `Ann` t) -> case u of
   Fix x xs as e
     | Just x' <- x ->
         preview (ix x') >>= \case
-          Nothing -> Fix Nothing xs as <$> tmSimp e
-          _ -> Fix x xs as <$> tmSimp e
-    | otherwise -> Fix Nothing xs as <$> tmSimp e
-  Tuple vs -> Tuple <$> traverse annSimp vs
-  _ -> error "No need"
-
-
-declSimp :: Decl -> Simp Decl
-declSimp = \case
-  At x i v -> At x i <$> annSimp v
-  Arith x p v1 v2 -> Arith x p <$> annSimp v1 <*> annSimp v2
-  _ -> error "No need"
+          Nothing -> (`Ann` t) . Fix Nothing xs as <$> tmSimp e
+          _ -> (`Ann` t) . Fix x xs as <$> tmSimp e
+    | otherwise -> (`Ann` t) . Fix Nothing xs as <$> tmSimp e
+  _ -> annSimp $ u `Ann` t

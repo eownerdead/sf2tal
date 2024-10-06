@@ -2,6 +2,8 @@ module SF2TAL.Utils
   ( classIdFields
   , makeFieldsId
   , int2Text
+  , universeOf
+  , universeOnOf
   , MonadUniq (..)
   , UniqT
   , Uniq
@@ -15,12 +17,15 @@ module SF2TAL.Utils
   )
 where
 
+import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.RWS
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.Char
+import Data.Coerce
 import Data.Functor.Identity
+import Data.Monoid
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as LT
 import Data.Text.Lazy.Builder qualified as LT
@@ -52,6 +57,20 @@ classIdFields =
             (TH.mkName $ x : xs)
         ]
       _ -> []
+
+
+universeOf :: Getting (Endo [a]) a a -> a -> [a]
+universeOf l x = appEndo (universeOf' l x) []
+
+
+universeOf' :: Getting (Endo [a]) a a -> a -> Endo [a]
+universeOf' l = go
+  where
+    go a = Endo (a :) <> coerce l go a
+
+
+universeOnOf :: Getting (Endo [a]) s a -> Getting (Endo [a]) a a -> s -> [a]
+universeOnOf b p x = appEndo (coerce b (universeOf' p) x) []
 
 
 class Monad m => MonadUniq m where

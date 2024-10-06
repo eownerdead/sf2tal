@@ -3,8 +3,9 @@ module SF2TAL.Middle.Middle
   , Name
   , Fv (..)
   , Ftv (..)
-  , Subst (..)
   , Ty (..)
+  , SubTys (..)
+  , subst
   , tTupleInitN
   , tTuple
   , tTupleUninited
@@ -14,6 +15,7 @@ module SF2TAL.Middle.Middle
   , Val (..)
   , appT
   , Ann (..)
+  , SubAnns (..)
   , HasVal (..)
   , HasTy (..)
   , Decl (..)
@@ -47,10 +49,6 @@ class Ftv a where
   ftv :: a -> S.Set TName
 
 
-class Subst a where
-  subst :: Name -> Ann -> a -> a
-
-
 -- | t
 data Ty where
   -- | K, C, H, A: a
@@ -77,6 +75,19 @@ instance Eq Ty where
   TTuple ss == TTuple ts = ss == ts
   TExists a s == TExists b t = s == tsubst b (TVar a) t
   _ == _ = False
+
+
+class SubTys a where
+  subTys :: Traversal' a Ty
+
+
+instance SubTys Ty where
+  subTys f = \case
+    TVar x -> pure $ TVar x
+    TInt -> pure TInt
+    TFix as ts -> TFix as <$> traverse f ts
+    TTuple ts -> TTuple <$> traverseOf (each . _1) f ts
+    TExists a t -> TExists a <$> f t
 
 
 instance PP.Pretty Ty where
@@ -124,14 +135,9 @@ tTupleInitedToN i ts = foldr tTupleInitN (tTupleUninited ts) [1 .. i]
 
 
 tsubst :: TName -> Ty -> Ty -> Ty
-tsubst a t' = \case
-  TVar b
-    | a == b -> t'
-    | otherwise -> TVar b
-  TInt -> TInt
-  TFix as ts -> TFix as $ fmap (tsubst a t') ts
-  TTuple ts -> TTuple (ts <&> _1 %~ tsubst a t')
-  TExists b t -> TExists b $ tsubst a t' t
+tsubst a t' = transformOf subTys $ \case
+  TVar b | a == b -> t'
+  x -> x
 
 
 instance Ftv Ty where
@@ -200,6 +206,38 @@ data Ann = Ann {val :: Val, ty :: Ty}
 deriving stock instance Show Ann
 
 
+instance SubTys Val where
+  subTys f = \case
+    Var x -> pure $ Var x
+    IntLit i -> pure $ IntLit i
+    Fix x as xs e -> Fix x as xs <$> subTys f e
+    Tuple vs -> Tuple <$> traverse (subTys f) vs
+    v `AppT` t -> AppT <$> subTys f v <*> f t
+    Pack t1 v t2 -> Pack <$> f t1 <*> subTys f v <*> f t2
+
+
+class SubAnns a where
+  subAnns :: Traversal' a Ann
+
+
+instance SubAnns Val where
+  subAnns f = \case
+    Var x -> pure $ Var x
+    IntLit i -> pure $ IntLit i
+    Fix x as xs e -> Fix x as xs <$> subAnns f e
+    Tuple vs -> Tuple <$> traverse f vs
+    v `AppT` t -> (`AppT` t) <$> f v
+    Pack t1 v t2 -> Pack t1 <$> f v <*> pure t2
+
+
+instance SubAnns Ann where
+  subAnns f (u `Ann` t) = (`Ann` t) <$> subAnns f u
+
+
+instance SubTys Ann where
+  subTys f (u `Ann` t) = Ann <$> subTys f u <*> f t
+
+
 instance PP.Pretty Ann where
   pretty (v `Ann` t) =
     PP.group $
@@ -230,15 +268,13 @@ instance Ftv Ann where
     Pack t1 v t2 -> ftv t1 <> ftv v <> ftv t2
 
 
-instance Subst Ann where
-  subst x v' (u `Ann` t) = case u of
+subst :: SubAnns a => Name -> Ann -> a -> a
+subst x v' =
+  subAnns %~ \(u `Ann` t) -> case u of
     Var y
       | x == y -> v'
       | otherwise -> Var y `Ann` t
-    IntLit i -> IntLit i `Ann` t
-    Fix y as xs e -> Fix y as xs (subst x v' e) `Ann` t
-    Tuple vs -> Tuple (fmap (subst x v') vs) `Ann` t
-    _ -> error "No need"
+    _ -> subst x v' $ u `Ann` t
 
 
 data Tm where
@@ -253,6 +289,22 @@ data Tm where
 
 
 deriving stock instance Show Tm
+
+
+instance SubTys Tm where
+  subTys f = \case
+    Let d e -> Let <$> subTys f d <*> subTys f e
+    App v ts vs -> App <$> subTys f v <*> traverse f ts <*> traverse (subTys f) vs
+    If0 v e1 e2 -> If0 <$> subTys f v <*> subTys f e1 <*> subTys f e2
+    Halt t v -> Halt <$> f t <*> subTys f v
+
+
+instance SubAnns Tm where
+  subAnns f = \case
+    Let d e -> Let <$> subAnns f d <*> subAnns f e
+    App v ts vs -> App <$> f v <*> pure ts <*> traverse f vs
+    If0 v e1 e2 -> If0 <$> f v <*> subAnns f e1 <*> subAnns f e2
+    Halt t v -> Halt t <$> f v
 
 
 instance PP.Pretty Tm where
@@ -287,19 +339,7 @@ instance Fv Tm where
 
 
 instance Ftv Tm where
-  ftv = \case
-    Let d e -> ftv d <> ftv e
-    App v ts vs -> ftv v <> foldMap ftv ts <> foldMap ftv vs
-    If0 v e1 e2 -> ftv v <> ftv e1 <> ftv e2
-    Halt t v -> ftv t <> ftv v
-
-
-instance Subst Tm where
-  subst x v' = \case
-    Let d e -> Let (subst x v' d) (subst x v' e)
-    App v ts vs -> App (subst x v' v) ts (fmap (subst x v') vs)
-    If0 v e1 e2 -> If0 (subst x v' v) (subst x v' e1) (subst x v' e2)
-    Halt t v -> Halt t (subst x v' v)
+  ftv e = S.fromList $ e ^.. subTys . folding ftv
 
 
 -- | d
@@ -319,6 +359,26 @@ data Decl where
 
 
 deriving stock instance Show Decl
+
+
+instance SubTys Decl where
+  subTys f = \case
+    Bind x v -> Bind x <$> subTys f v
+    At x i v -> At x i <$> subTys f v
+    Arith x p v1 v2 -> Arith x p <$> subTys f v1 <*> subTys f v2
+    Unpack a x v -> Unpack a x <$> subTys f v
+    Malloc x ts -> Malloc x <$> traverse f ts
+    Update x v1 i v2 -> Update x <$> subTys f v1 <*> pure i <*> subTys f v2
+
+
+instance SubAnns Decl where
+  subAnns f = \case
+    Bind x v -> Bind x <$> f v
+    At x i v -> At x i <$> f v
+    Arith x p v1 v2 -> Arith x p <$> f v1 <*> f v2
+    Unpack a x v -> Unpack a x <$> f v
+    Malloc x ts -> pure $ Malloc x ts
+    Update x v1 i v2 -> Update x <$> f v1 <*> pure i <*> f v2
 
 
 instance PP.Pretty Decl where
@@ -359,18 +419,7 @@ prettyDecl x v = PP.nest 2 $ PP.sep [x <+> PP.equals, v]
 
 
 instance Ftv Decl where
-  ftv = \case
-    Bind _x v -> ftv v
-    At _x _i v -> ftv v
-    Arith _x _p v1 v2 -> ftv v1 <> ftv v2
-    _ -> error "no need"
-
-
-instance Subst Decl where
-  subst x v' = \case
-    At y i v -> At x i (subst y v' v)
-    Arith y p v1 v2 -> Arith y p (subst x v' v1) (subst x v' v2)
-    _ -> error "No need"
+  ftv e = S.fromList $ e ^.. subTys . folding ftv
 
 
 -- | H, A: p
