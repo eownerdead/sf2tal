@@ -23,14 +23,14 @@ type Tc = ReaderT TcEnv (Either T.Text)
 
 
 ckProg :: THeap -> Prog -> Either T.Text ()
-ckProg ths p = runReaderT (ckProg' p) (TcEnv{tHeap = ths, tRegFile = mempty})
+ckProg ths p = runReaderT (ckProg' p) TcEnv{tHeap = ths, tRegFile = mempty}
 
 
 ckProg' :: Prog -> Tc ()
 ckProg' (Prog h r is) = do
   ckHeaps h
   tRegFile' <- tyRegFile r
-  local (tRegFile .~ tRegFile') $ tySeq is
+  local (tRegFile .~ tRegFile') do tySeq is
 
 
 ckHeaps :: Heaps -> Tc ()
@@ -39,7 +39,7 @@ ckHeaps = traverse_ ckHeapVal
 
 ckHeapVal :: HVal -> Tc ()
 ckHeapVal = \case
-  Code _as trs is -> local (tRegFile .~ trs) $ tySeq is
+  Code _as trs is -> local (tRegFile .~ trs) do tySeq is
   Tuple{} -> pure ()
 
 
@@ -47,49 +47,49 @@ tySeq :: Seq -> Tc ()
 tySeq (Seq i is) = case i of
   Arith _p rd rs v -> do
     tyR rs >>= \t ->
-      when (t /= TInt) $
+      when (t /= TInt) do
         throwError $
           "Arith: rs is not Int, but " <> prettyText t
     tyVal v >>= \t ->
-      when (t /= TInt) $
+      when (t /= TInt) do
         throwError $
           "Arith: v is not Int, but " <> prettyText t
     local (tRegFile . at rd ?~ TInt) $ tySeq is
   Bnz r v -> do
     tyR r >>= \t ->
-      when (t /= TInt) $ throwError $ "Bnz: r is not Int, but " <> prettyText t
+      when (t /= TInt) do throwError $ "Bnz: r is not Int, but " <> prettyText t
     tySeq (Jmp v)
     tySeq is
   Ld rd rs k ->
     tyR rs >>= \case
       TTuple ts
         | Just (t, True) <- ts ^? ix k ->
-            local (tRegFile . at rd ?~ t) $ tySeq is
+            local (tRegFile . at rd ?~ t) do tySeq is
       _ -> throwError "Ld: rs is not TTuple or i is invalid"
   Malloc rd ts ->
-    local (tRegFile . at rd ?~ TTuple (fmap (,False) ts)) $ tySeq is
+    local (tRegFile . at rd ?~ TTuple (fmap (,False) ts)) do tySeq is
   Mov rd v -> do
     t <- tyVal v
-    local (tRegFile . at rd ?~ t) $ tySeq is
+    local (tRegFile . at rd ?~ t) do tySeq is
   St rd k rs ->
     tyR rd >>= \case
       TTuple ts | Just (t, _) <- ts ^? ix k -> do
         tyR rs >>= \t' ->
-          when (t' /= t) $
+          when (t' /= t) do
             throwError $
               "St: rs is not ts[i], but " <> prettyText t'
-        local (tRegFile . at rd ?~ TTuple (ts & ix k . _2 .~ True)) $ tySeq is
+        local (tRegFile . at rd ?~ TTuple (ts & ix k . _2 .~ True)) do tySeq is
       t -> throwError $ "St: rd is not TTuple, but " <> prettyText t
   Unpack a rd v ->
     tyVal v >>= \case
       TExists b t ->
-        local (tRegFile . at rd ?~ tsubst b (TVar a) t) $ tySeq is
+        local (tRegFile . at rd ?~ tsubst b (TVar a) t) do tySeq is
       t -> throwError $ "Unpack: v is not TExists, but " <> prettyText t
 tySeq (Jmp v) = do
   trs <- view tRegFile
   tyVal v >>= \case
     TCode [] trs' ->
-      unless (trs `isSubtyOf` trs') $
+      unless (trs `isSubtyOf` trs') do
         throwError $
           "Jmp: register file is not subtype of "
             <> prettyText v
@@ -97,7 +97,7 @@ tySeq (Jmp v) = do
       throwError $ "Jmp: v is not TCode, but " <> prettyText t
 tySeq (Halt t) =
   preview (tRegFile . ix (A 1)) >>= \t' ->
-    when (t' /= Just t) $
+    when (t' /= Just t) do
       throwError $
         "Halt: r1 is not t, but " <> prettyText t'
 

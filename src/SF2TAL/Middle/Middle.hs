@@ -104,9 +104,9 @@ instance PP.Pretty Ty where
     TTuple ts ->
       angles $
         fmap
-          ( \(t, i) ->
+          do
+            \(t, i) ->
               (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
-          )
           ts
     TExists a t ->
       PP.nest 2 $
@@ -135,7 +135,7 @@ tTupleInitedToN i ts = foldr tTupleInitN (tTupleUninited ts) [1 .. i]
 
 
 tsubst :: TName -> Ty -> Ty -> Ty
-tsubst a t' = transformOf subTys $ \case
+tsubst a t' = transformOf subTys \case
   TVar b | a == b -> t'
   x -> x
 
@@ -179,11 +179,11 @@ instance PP.Pretty Val where
     IntLit i -> pretty i
     Fix x as xs e ->
       PP.group $
-        ( case x of
+        do
+          case x of
             Just x' -> pretty ("fix " :: T.Text) <> pretty x'
             Nothing -> pretty ("fun" :: T.Text)
-        )
-          <> (if null as then mempty else brackets (fmap pretty as))
+          <> do if null as then mempty else brackets (fmap pretty as)
           <> parens (fmap (\(k, v) -> pretty k <+> PP.colon <+> pretty v) xs)
           <> PP.dot
           <> PP.nest 2 (PP.line <> pretty e)
@@ -316,7 +316,7 @@ instance PP.Pretty Tm where
         ]
     App e1 ts xs ->
       parens [pretty e1]
-        <> (if null ts then mempty else brackets (fmap pretty ts))
+        <> do if null ts then mempty else brackets (fmap pretty ts)
         <> parens (fmap pretty xs)
     If0 v e1 e2 ->
       pretty ("if0" :: T.Text)
@@ -435,13 +435,13 @@ instance PP.Pretty Prog where
     PP.vsep
       [ PP.nest
           2
-          ( PP.vsep $
+          do
+            PP.vsep $
               pretty ("letrec" :: T.Text)
                 : fmap
-                  (\(k, v) -> prettyDecl (pretty k) (pretty v))
-                  (M.toList xs)
-          )
-      , PP.nest 2 (PP.vsep [pretty ("in" :: T.Text), pretty e])
+                  do \(k, v) -> prettyDecl (pretty k) (pretty v)
+                  do M.toList xs
+      , PP.nest 2 $ PP.vsep [pretty ("in" :: T.Text), pretty e]
       ]
 
 

@@ -20,7 +20,7 @@ freshen x =
     Just x' -> pure x'
     Nothing -> do
       x' <- fresh
-      state (\s -> (x', s & at x ?~ x'))
+      state \s -> (x', s & at x ?~ x')
 
 
 kTy :: MonadUniq m => F.Ty -> KT m Ty
@@ -43,7 +43,8 @@ kCont t = do
 
 kProg :: MonadUniq m => F.Tm -> m Tm
 kProg = \case
-  v@(F.Ann _u t) -> evalStateT (kExp v $ \x -> Halt <$> kTy t <*> pure x) mempty
+  v@(F.Ann _u t) -> (`evalStateT` mempty)
+    do kExp v \x -> Halt <$> kTy t <*> pure x
   x -> error $ "unannotated: " <> show x
 
 
@@ -59,9 +60,9 @@ kExp (u `F.Ann` t) k = case u of
     c <- fresh
     t1' <- kTy t1
     t2' <- kCont t2
-    e' <- kExp e $ \k' -> pure $ App (Var c `Ann` t2') [] [k']
+    e' <- kExp e \k' -> pure $ App (Var c `Ann` t2') [] [k']
     k . (Fix x' [] [(x1', t1'), (c, t2')] e' `Ann`) =<< kTy t
-  v1 `F.App` v2 -> kExp v1 $ \x1 -> kExp v2 $ \x2 -> do
+  v1 `F.App` v2 -> kExp v1 \x1 -> kExp v2 \x2 -> do
     k' <- unEta k =<< kTy t
     pure $ App x1 [] [x2, k']
   a `F.AbsT` v -> do
@@ -73,23 +74,23 @@ kExp (u `F.Ann` t) k = case u of
   v `F.AppT` s -> do
     k' <- unEta k =<< kTy t
     s' <- kTy s
-    kExp v $ \x -> pure $ App x [s'] [k']
+    kExp v \x -> pure $ App x [s'] [k']
   F.Tuple vs ->
     foldr
-      (\v k' vs' -> kExp v $ \x -> k' (x : vs'))
-      (\k' -> k . (Tuple k' `Ann`) =<< kTy t)
+      do \v k' vs' -> kExp v \x -> k' (x : vs')
+      do \k' -> k . (Tuple k' `Ann`) =<< kTy t
       vs
       []
-  F.At i v -> kExp v $ \x -> do
+  F.At i v -> kExp v \x -> do
     y <- fresh
     Let (At y i x) <$> (k . (Var y `Ann`) =<< kTy t)
   F.Arith p e1 e2 -> do
-    kExp e1 $ \x1 -> do
-      kExp e2 $ \x2 -> do
+    kExp e1 \x1 -> do
+      kExp e2 \x2 -> do
         y <- fresh
         Let (Arith y p x1 x2) <$> k (Var y `Ann` TInt)
   F.If0 e1 e2 e3 -> do
-    kExp e1 $ \x -> do
+    kExp e1 \x -> do
       e2' <- kExp e2 k
       e3' <- kExp e3 k
       pure $ If0 x e2' e3'

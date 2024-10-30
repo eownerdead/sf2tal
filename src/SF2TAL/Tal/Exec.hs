@@ -44,7 +44,7 @@ exec ths (Prog hs rs is) = do
   (_, env) <-
     runStateT
       (exec' is)
-      (ExecEnv{heaps = hs, tHeap = ths, regFile = rs})
+      ExecEnv{heaps = hs, tHeap = ths, regFile = rs}
   pure $ env ^. regFile ^?! ix (A 1)
   where
     exec' :: MonadUniq m => Seq -> ExecT m Seq
@@ -124,7 +124,7 @@ step (Jmp v) = val v >>= \v' -> app v' id
         Code as _ is' ->
           pure $ foldr (uncurry tsubst) is' $ zip as (k [])
         t -> error $ "Jmp: l is not Code, but " <> T.unpack (prettyText t)
-    app (AppT v'' t) k = app v'' (\ts -> k (t : ts))
+    app (AppT v'' t) k = app v'' \ts -> k (t : ts)
     app _ _ = error "Jmp: v is not Label"
 step (Halt t) = pure $ Halt t
 

@@ -63,7 +63,7 @@ tmSimp = \case
 
 
 annSimp :: Ann -> Simp Ann
-annSimp = subAnns $ \(u `Ann` t) -> case u of
+annSimp = subAnns \(u `Ann` t) -> case u of
   Fix x xs as e
     | Just x' <- x ->
         preview (ix x') >>= \case

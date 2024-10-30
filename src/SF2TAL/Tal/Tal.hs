@@ -95,9 +95,9 @@ instance PP.Pretty Ty where
     TTuple ts ->
       angles $
         fmap
-          ( \(t, i) ->
+          do
+            \(t, i) ->
               (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
-          )
           ts
     TExists a t ->
       pretty ("exists" :: T.Text)
@@ -283,7 +283,9 @@ instance PP.Pretty Inst where
       PP.hsep $
         PP.punctuate
           PP.comma
-          [pretty ("unpack" :: T.Text) <> brackets [pretty a, pretty rd], pretty v]
+          [ pretty ("unpack" :: T.Text) <> brackets [pretty a, pretty rd]
+          , pretty v
+          ]
 
 
 instance TSubst Inst where

@@ -33,7 +33,7 @@ cTy = \case
 
 cProg :: MonadUniq m => Tm -> m Prog
 cProg p = do
-  (e, xs) <- runWriterT $ cExp p
+  (e, xs) <- runWriterT do cExp p
   pure $ LetRec xs e
 
 
@@ -49,7 +49,7 @@ cExp = \case
     vs' <- traverse cVal vs
     cTy (v ^. ty) >>= \case
       TExists b (TTuple [(tCode, _), (b', _)]) -> do
-        when (TVar b /= b') $ error "cExp: b /= b'"
+        when (TVar b /= b') do error "cExp: b /= b'"
         pure $
           Let (Unpack b z v') $
             Let (At zCode 1 (Var z `Ann` tTuple [tCode, TVar b])) $
@@ -92,12 +92,12 @@ cVal v@(u `Ann` t) = case u of
     let pack =
           Pack
             tEnv
-            ( Tuple
+            do
+              Tuple
                 [ (Var zCode `Ann` tRawCode) `appT` fmap TVar bs
                 , Var zEnv `Ann` tEnv
                 ]
                 `Ann` tTuple [tCode, tEnv]
-            )
             t'
             `Ann` t'
     let vCode =
@@ -105,23 +105,23 @@ cVal v@(u `Ann` t) = case u of
             Nothing
             (bs <> as)
             ((zEnv, tEnv) : zip (fmap fst xs) ts')
-            ( maybe id (\x' -> Let $ Bind x' pack) x $
+            do
+              maybe id (\x' -> Let $ Bind x' pack) x $
                 foldr
-                  (\(i, y) -> Let (At y i (Var zEnv `Ann` tEnv)))
+                  do \(i, y) -> Let (At y i (Var zEnv `Ann` tEnv))
                   e'
                   (zip [1 ..] (M.keys ys))
-            )
             `Ann` tRawCode
     vEnv <- Tuple <$> mapM (\(y, s) -> Ann (Var y) <$> cTy s) (M.toList ys)
     writer
       ( Pack
           tEnv
-          ( Tuple
+          do
+            Tuple
               [ (Var zCode `Ann` tRawCode) `appT` fmap TVar bs
               , vEnv `Ann` tEnv
               ]
               `Ann` tTuple [tCode, tEnv]
-          )
           t'
           `Ann` t'
       , M.singleton zCode vCode

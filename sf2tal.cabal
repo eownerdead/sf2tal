@@ -12,6 +12,7 @@ homepage: https://codeberg.org/eownerdead/sf2tal
 common common
   default-language: GHC2021
   default-extensions:
+    BlockArguments,
     DerivingStrategies,
     DerivingVia,
     DuplicateRecordFields,

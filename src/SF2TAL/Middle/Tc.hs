@@ -33,7 +33,7 @@ ckProg p = runReaderT (ckProg' p) mempty
 
 
 ckProg' :: Prog -> Tc ()
-ckProg' (LetRec xs e) = local (fmap (^. ty) xs <>) $ do
+ckProg' (LetRec xs e) = local (fmap (^. ty) xs <>) do
   mapM_ ckAnn xs
   ckTm' e
 
@@ -47,22 +47,20 @@ ckTm' = \case
   Let d e -> do
     ckDecl d $ ckTm' e
   App v bs vs
-    | TFix as ts <- v ^. ty -> forM_ (zip ts vs) $ \(t, v') -> do
+    | TFix as ts <- v ^. ty -> forM_ (zip ts vs) \(t, v') -> do
         let t' = foldr (uncurry tsubst) t (zip as bs)
-        when (v' ^. ty /= t') $
-          throwError $
-            "App: vs does not match: " <> prettyText (v' ^. ty)
-    | otherwise -> throwError $ "App: v is not TFix, but " <> prettyText (v ^. ty)
+        when (v' ^. ty /= t') do
+          throwError $ "App: vs does not match: " <> prettyText (v' ^. ty)
+    | otherwise -> throwError do
+        "App: v is not TFix, but " <> prettyText (v ^. ty)
   If0 v e1 e2 -> do
-    when (v ^. ty /= TInt) $
-      throwError $
-        "If0: v is not TInt, but " <> prettyText (v ^. ty)
+    when (v ^. ty /= TInt) do
+      throwError $ "If0: v is not TInt, but " <> prettyText (v ^. ty)
     ckTm' e1
     ckTm' e2
   Halt t v ->
-    when (v ^. ty /= t) $
-      throwError $
-        "Halt: v is not t, but " <> prettyText (v ^. ty)
+    when (v ^. ty /= t) do
+      throwError $ "Halt: v is not t, but " <> prettyText (v ^. ty)
 
 
 ckDecl :: Decl -> Tc a -> Tc a
@@ -76,16 +74,15 @@ ckDecl d k = case d of
         ckAnn v
         local (at x ?~ fst t) k
     | otherwise ->
-        throwError $ "At: v is not TTuple or invalid i: " <> prettyText (v ^. ty)
+        throwError $
+          "At: v is not TTuple or invalid i: " <> prettyText (v ^. ty)
   Arith x _p v1 v2 -> do
     ckAnn v1
     ckAnn v2
-    when (v1 ^. ty /= TInt) $
-      throwError $
-        "Arith: v1 is not TInt, but " <> prettyText (v1 ^. ty)
-    when (v2 ^. ty /= TInt) $
-      throwError $
-        "Arith: v2 is not TInt, but " <> prettyText (v2 ^. ty)
+    when (v1 ^. ty /= TInt) do
+      throwError $ "Arith: v1 is not TInt, but " <> prettyText (v1 ^. ty)
+    when (v2 ^. ty /= TInt) do
+      throwError $ "Arith: v2 is not TInt, but " <> prettyText (v2 ^. ty)
     local (at x ?~ TInt) k
   Unpack a x v
     | TExists a' t <- v ^. ty -> do
@@ -99,7 +96,7 @@ ckDecl d k = case d of
     , Just (t, _) <- ts ^? ix (i - 1) -> do
         ckAnn v1
         ckAnn v2
-        when (v2 ^. ty /= t) $
+        when (v2 ^. ty /= t) do
           throwError $
             "Update: type of v2 does not match: " <> prettyText (v2 ^. ty)
         local (at x ?~ tTupleInitN i (v1 ^. ty)) k
@@ -112,40 +109,37 @@ ckAnn :: Ann -> Tc ()
 ckAnn (u `Ann` t) = case u of
   Var x -> do
     t' <- lookupVar x
-    when (t /= t') $
+    when (t /= t') do
       throwError $
         "Var: Ann: " <> prettyText u
   IntLit _ ->
-    when (t /= TInt) $
+    when (t /= TInt) do
       throwError $
         "IntLit: Ann is not TInt, but " <> prettyText t
   Fix x _as xs e ->
     if
       | TFix _as' _ts <- t ->
-          local (M.fromList xs <>) $
-            local (maybe id (\x' -> at x' ?~ t) x) $
+          local (M.fromList xs <>) do
+            local (maybe id (\x' -> at x' ?~ t) x) do
               ckTm' e
       | otherwise -> throwError $ "Fix: Ann is not TFix, but " <> prettyText t
   Tuple vs -> do
     mapM_ ckAnn vs
-    when (tTuple (fmap (^. ty) vs) /= t) $
-      throwError $
-        "Tuple: Ann not match: " <> prettyText t
+    when (tTuple (fmap (^. ty) vs) /= t) do
+      throwError $ "Tuple: Ann not match: " <> prettyText t
   v `AppT` t' ->
     if
       | TFix (a : as) ts <- v ^. ty -> do
           ckAnn v
-          when (TFix as (tsubst a t' <$> ts) /= t) $
-            throwError $
-              "AppT: Ann not match: " <> prettyText t
+          when (TFix as (tsubst a t' <$> ts) /= t) do
+            throwError $ "AppT: Ann not match: " <> prettyText t
       | otherwise -> throwError $ "AppT: v is not TFix, but " <> prettyText t
   Pack t1 v t2 ->
     if
       | TExists a t2' <- t2 -> do
           ckAnn v
-          when (t2 /= t) $ throwError $ "Pack: Ann not match: " <> prettyText t
-          when (v ^. ty /= tsubst a t1 t2') $
-            throwError $
-              "Pack: Invalid v: " <> prettyText (tsubst a t1 t2')
+          when (t2 /= t) do throwError $ "Pack: Ann not match: " <> prettyText t
+          when (v ^. ty /= tsubst a t1 t2') do
+            throwError $ "Pack: Invalid v: " <> prettyText (tsubst a t1 t2')
       | otherwise ->
           throwError $ "Pack: t2 is not TExists, but " <> prettyText t2
