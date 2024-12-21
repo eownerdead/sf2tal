@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     utils.url = "github:numtide/flake-utils";
   };
 
@@ -14,7 +14,8 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
-      in rec {
+      in
+      rec {
         formatter = pkgs.nixfmt-rfc-style;
 
         packages.sf2tal = pkgs.haskellPackages.developPackage {

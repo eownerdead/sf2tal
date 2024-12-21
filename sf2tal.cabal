@@ -69,4 +69,4 @@ test-suite sf2tal-test
   main-is: sf2tal-test.hs
   build-depends:
     sf2tal-lib,
-    hspec ^>=2.11.8,
+    hspec ^>=2.11.9,
