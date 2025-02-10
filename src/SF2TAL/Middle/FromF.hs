@@ -42,26 +42,23 @@ kCont t = do
 
 
 kProg :: MonadUniq m => F.Tm -> m Tm
-kProg = \case
-  v@(F.Ann _u t) -> (`evalStateT` mempty)
-    do kExp v \x -> Halt <$> kTy t <*> pure x
-  x -> error $ "unannotated: " <> show x
+kProg v = evalStateT (kExp v (pure . Halt)) mempty
 
 
-kExp :: MonadUniq m => F.Tm -> (Ann -> KT m Tm) -> KT m Tm
+kExp :: MonadUniq m => F.Tm -> (Val -> KT m Tm) -> KT m Tm
 kExp (u `F.Ann` t) k = case u of
   F.Var x -> do
     x' <- freshen x
-    k . (Var x' `Ann`) =<< kTy t
-  F.IntLit v -> k . (IntLit v `Ann`) =<< kTy t
+    k . Var x' =<< kTy t
+  F.IntLit v -> k $ IntLit v
   F.Fix x x1 t1 t2 e -> do
     x' <- if x == "" then pure Nothing else Just <$> freshen x
     x1' <- freshen x1
     c <- fresh
     t1' <- kTy t1
     t2' <- kCont t2
-    e' <- kExp e \k' -> pure $ App (Var c `Ann` t2') [] [k']
-    k . (Fix x' [] [(x1', t1'), (c, t2')] e' `Ann`) =<< kTy t
+    e' <- kExp e \k' -> pure $ App (Var c t2') [] [k']
+    k $ Fix x' [] [(x1', t1'), (c, t2')] e'
   v1 `F.App` v2 -> kExp v1 \x1 -> kExp v2 \x2 -> do
     k' <- unEta k =<< kTy t
     pure $ App x1 [] [x2, k']
@@ -69,26 +66,26 @@ kExp (u `F.Ann` t) k = case u of
     a' <- freshen a
     c <- fresh
     vt <- kCont (F.ann v)
-    v' <- kExp v $ \k' -> pure $ App (Var c `Ann` vt) [] [k']
-    k . (Fix Nothing [a'] [(c, vt)] v' `Ann`) =<< kTy t
+    v' <- kExp v $ \k' -> pure $ App (Var c vt) [] [k']
+    k $ Fix Nothing [a'] [(c, vt)] v'
   v `F.AppT` s -> do
     k' <- unEta k =<< kTy t
     s' <- kTy s
     kExp v \x -> pure $ App x [s'] [k']
   F.Tuple vs ->
     foldr
-      do \v k' vs' -> kExp v \x -> k' (x : vs')
-      do \k' -> k . (Tuple k' `Ann`) =<< kTy t
+      (\v k' vs' -> kExp v \x -> k' (x : vs'))
+      (k . Tuple)
       vs
       []
   F.At i v -> kExp v \x -> do
     y <- fresh
-    Let (At y i x) <$> (k . (Var y `Ann`) =<< kTy t)
+    Let (At y i x) <$> (k . Var y =<< kTy t)
   F.Arith p e1 e2 -> do
     kExp e1 \x1 -> do
       kExp e2 \x2 -> do
         y <- fresh
-        Let (Arith y p x1 x2) <$> k (Var y `Ann` TInt)
+        Let (Arith y p x1 x2) <$> k (Var y TInt)
   F.If0 e1 e2 e3 -> do
     kExp e1 \x -> do
       e2' <- kExp e2 k
@@ -98,8 +95,8 @@ kExp (u `F.Ann` t) k = case u of
 kExp x _ = error $ "unannotated: " <> show x
 
 
-unEta :: MonadUniq m => (Ann -> m Tm) -> Ty -> m Ann
+unEta :: MonadUniq m => (Val -> m Tm) -> Ty -> m Val
 unEta k t = do
   k' <- fresh
-  un <- k $ Var k' `Ann` t
-  pure $ Fix Nothing [] [(k', t)] un `Ann` TFix [] [t]
+  un <- k $ Var k' t
+  pure $ Fix Nothing [] [(k', t)] un

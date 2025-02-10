@@ -75,9 +75,9 @@ tProg' :: MonadUniq m => M.Prog -> TalT m Seq
 tProg' (M.LetRec xs e) = do
   vs <- traverse (const fresh) xs
   local (vals .~ fmap Label vs) do
-    hs' <- traverse (tHVal . (^. M.val)) $ M.mapKeys (vs M.!) xs
+    hs' <- traverse tHVal $ M.mapKeys (vs M.!) xs
     is <- tExp e
-    writer (is, TalLog hs' $ tTy . (^. M.ty) <$> M.mapKeys (vs M.!) xs)
+    writer (is, TalLog hs' $ tTy . M.ty <$> M.mapKeys (vs M.!) xs)
 
 
 tHVal :: MonadUniq m => M.Val -> TalT m HVal
@@ -94,16 +94,16 @@ tHVal = \case
   h -> error $ "not HVal: " <> T.unpack (prettyText h)
 
 
-tVal :: MonadUniq m => M.Ann -> TalT m Val
-tVal (u `M.Ann` _) = case u of
-  M.Var x ->
+tVal :: MonadUniq m => M.Val -> TalT m Val
+tVal = \case
+  M.Var x _t ->
     preview (vals . ix x) >>= \case
       Just x' -> pure x'
       Nothing -> error $ "undefined variable " <> T.unpack (prettyText x)
   M.IntLit i -> pure $ IntLit i
   M.AppT v s -> AppT <$> tVal v <*> pure (tTy s)
   M.Pack t1 v t2 -> Pack (tTy t1) <$> tVal v <*> pure (tTy t2)
-  _ -> error $ "not Val: " <> T.unpack (prettyText u)
+  v -> error $ "not Val: " <> T.unpack (prettyText v)
 
 
 tExp :: MonadUniq m => M.Tm -> TalT m Seq
@@ -114,11 +114,11 @@ tExp = \case
       v' <- tVal v
       is <-
         local
-          do (vals . at x ?~ Reg r) . (tRegFile . at r ?~ tTy (v ^. M.ty))
+          do (vals . at x ?~ Reg r) . (tRegFile . at r ?~ tTy (M.ty v))
           do tExp e
       pure $ Mov r v' `Seq` is
     M.At x i v
-      | M.TTuple ts <- v ^. M.ty -> do
+      | M.TTuple ts <- M.ty v -> do
           r <- R <$> fresh
           v' <- tVal v
           is <-
@@ -130,7 +130,7 @@ tExp = \case
           pure $ Mov r v' `Seq` Ld r r (i - 1) `Seq` is
       | otherwise ->
           error $
-            "At: t is not TTuple, but " <> T.unpack (prettyText $ v ^. M.ty)
+            "At: t is not TTuple, but " <> T.unpack (prettyText $ M.ty v)
     M.Arith x p v1 v2 -> do
       r <- R <$> fresh
       v1' <- tVal v1
@@ -140,8 +140,8 @@ tExp = \case
           do (vals . at x ?~ Reg r) . (tRegFile . at r ?~ TInt)
           do tExp e
       pure $ Mov r v1' `Seq` Arith p r r v2' `Seq` is
-    M.Unpack a x v@(_ `M.Ann` t)
-      | M.TExists _b _t' <- t -> do
+    M.Unpack a x v
+      | M.TExists _b _t' <- M.ty v -> do
           r <- R <$> fresh
           v' <- tVal v
           is <-
@@ -149,10 +149,11 @@ tExp = \case
               do
                 (vals . at x ?~ Reg r)
                   . (tCtx %~ S.insert a)
-                  . (tRegFile . at r ?~ tTy t)
+                  . (tRegFile . at r ?~ tTy (M.ty v))
               do tExp e
           pure $ Unpack a r v' `Seq` is
-      | otherwise -> error $ "t is not TExists, but " <> T.unpack (prettyText t)
+      | otherwise ->
+          error $ "t is not TExists, but " <> T.unpack (prettyText (M.ty v))
     M.Malloc x ts -> do
       r <- R <$> fresh
       is <-
@@ -163,7 +164,7 @@ tExp = \case
           do tExp e
       pure $ Malloc r (fmap tTy ts) `Seq` is
     M.Update x v1 i v2
-      | M.TTuple ts <- v1 ^. M.ty -> do
+      | M.TTuple ts <- M.ty v1 -> do
           r <- R <$> fresh
           v1' <- tVal v1
           r' <- R <$> fresh
@@ -180,7 +181,7 @@ tExp = \case
           pure $ Mov r v1' `Seq` Mov r' v2' `Seq` St r (i - 1) r' `Seq` is
       | otherwise ->
           error $
-            "Update: t is not TTuple, but " <> T.unpack (prettyText $ v1 ^. M.ty)
+            "Update: t is not TTuple, but " <> T.unpack (prettyText $ M.ty v1)
   M.App v as vs -> do
     unless (null as) $ error "not (null as)"
     r0 <- R <$> fresh
@@ -205,6 +206,6 @@ tExp = \case
         do M.singleton l $ Code (S.toList tCtx') trs is2
         do M.singleton l $ TCode (S.toList tCtx') trs
     pure $ Mov r v' `Seq` Bnz r (Label l) `Seq` is1
-  M.Halt t v -> do
+  M.Halt v -> do
     v' <- tVal v
-    pure $ Mov (A 1) v' `Seq` Halt (tTy t)
+    pure $ Mov (A 1) v' `Seq` Halt (tTy (M.ty v))

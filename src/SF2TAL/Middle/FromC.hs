@@ -34,10 +34,10 @@ aProg :: MonadUniq m => Prog -> m Prog
 aProg (LetRec xs e) = LetRec <$> traverse aHval xs <*> aExp e
 
 
-aHval :: MonadUniq m => Ann -> m Ann
+aHval :: MonadUniq m => Val -> m Val
 aHval = \case
-  Fix Nothing as xs e `Ann` t ->
-    Ann <$> (Fix Nothing as (xs <&> _2 %~ aTy) <$> aExp e) <*> pure t
+  Fix Nothing as xs e ->
+    Fix Nothing as (xs <&> _2 %~ aTy) <$> aExp e
   v -> error $ "unannotated: " <> show v
 
 
@@ -47,7 +47,7 @@ aExp = \case
   App v [] vs -> let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs
   e@App{} -> errorC e
   If0 v e1 e2 -> let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
-  Halt t v -> let' $ Halt (aTy t) <$> aVal v
+  Halt v -> let' $ Halt <$> aVal v
 
 
 aDec :: MonadUniq m => Decl -> AT m ()
@@ -69,31 +69,31 @@ aDec = \case
   d@Update{} -> errorC d
 
 
-aVal :: MonadUniq m => Ann -> AT m Ann
-aVal (u `Ann` t) = case u of
-  Var x -> pure $ Var x `Ann` aTy t
-  IntLit i -> pure $ IntLit i `Ann` aTy t
+aVal :: MonadUniq m => Val -> AT m Val
+aVal = \case
+  Var x t -> pure $ Var x (aTy t)
+  IntLit i -> pure $ IntLit i
   v `AppT` ts -> do
     v' <- aVal v
-    pure $ (v' `AppT` aTy ts) `Ann` aTy t
+    pure $ v' `AppT` aTy ts
   Pack t' v t'' -> do
     v' <- aVal v
-    pure $ Pack (aTy t') v' (aTy t'') `Ann` aTy t
-  Tuple vs -> do
+    pure $ Pack (aTy t') v' (aTy t'')
+  v@(Tuple vs) -> do
     let n = length vs
-    let ts = fmap (aTy . (^. ty)) vs
+    let ts = fmap (aTy . ty) vs
     vs' <- traverse aVal vs
 
     y0 <- fresh
     ys <- replicateM n fresh
     writer
-      ( Var (last (y0 : ys)) `Ann` aTy t
+      ( Var (last (y0 : ys)) (aTy $ ty v)
       , Malloc y0 ts
-          : [ Update y (Var y' `Ann` tTupleInitedToN (i - 1) ts) i v'
+          : [ Update y (Var y' $ tTupleInitedToN (i - 1) ts) i v'
             | y <- ys
             | y' <- y0 : ys
             | v' <- vs'
             | i <- [1 ..]
             ]
       )
-  Fix{} -> errorC u
+  v@Fix{} -> errorC v

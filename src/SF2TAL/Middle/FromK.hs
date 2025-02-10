@@ -16,7 +16,7 @@ errorK :: Show a => a -> b
 errorK x = error $ "not in K: " <> show x
 
 
-type CT m = WriterT (M.Map Name Ann) m
+type CT m = WriterT (M.Map Name Val) m
 
 
 cTy :: MonadUniq m => Ty -> CT m Ty
@@ -47,20 +47,20 @@ cExp = \case
     zEnv <- fresh
     ts' <- traverse cTy ts
     vs' <- traverse cVal vs
-    cTy (v ^. ty) >>= \case
+    cTy (ty v) >>= \case
       TExists b (TTuple [(tCode, _), (b', _)]) -> do
         when (TVar b /= b') do error "cExp: b /= b'"
         pure $
           Let (Unpack b z v') $
-            Let (At zCode 1 (Var z `Ann` tTuple [tCode, TVar b])) $
-              Let (At zEnv 2 (Var z `Ann` tTuple [tCode, TVar b])) $
+            Let (At zCode 1 $ Var z (tTuple [tCode, TVar b])) $
+              Let (At zEnv 2 $ Var z (tTuple [tCode, TVar b])) $
                 App
-                  ((Var zCode `Ann` tCode) `appT` ts')
+                  (Var zCode tCode `appT` ts')
                   []
-                  ([Var zEnv `Ann` TVar b] <> vs')
+                  ([Var zEnv (TVar b)] <> vs')
       t -> error $ "not TExists: " <> show t
   If0 v e1 e2 -> If0 <$> cVal v <*> cExp e1 <*> cExp e2
-  Halt t v -> Halt <$> cTy t <*> cVal v
+  Halt v -> Halt <$> cVal v
 
 
 cDec :: MonadUniq m => Decl -> CT m Decl
@@ -73,12 +73,12 @@ cDec = \case
   d@Update{} -> errorK d
 
 
-cVal :: MonadUniq m => Ann -> CT m Ann
-cVal v@(u `Ann` t) = case u of
-  Var x -> Ann (Var x) <$> cTy t
-  IntLit i -> Ann (IntLit i) <$> cTy t
-  Tuple vs -> Ann <$> (Tuple <$> traverse cVal vs) <*> cTy t
-  Fix x as xs e -> do
+cVal :: MonadUniq m => Val -> CT m Val
+cVal = \case
+  Var x t -> Var x <$> cTy t
+  IntLit i -> pure $ IntLit i
+  Tuple vs -> Tuple <$> traverse cVal vs
+  v@(Fix x as xs e) -> do
     ts' <- traverse (cTy . snd) xs
     zCode <- fresh
     zEnv <- fresh
@@ -86,20 +86,17 @@ cVal v@(u `Ann` t) = case u of
     let bs = S.toList $ ftv v
     tEnv <- cTy $ tTuple $ M.elems ys
     let tRawCode = TFix (bs <> as) (tEnv : ts')
-    let tCode = TFix as (tEnv : ts')
     e' <- cExp e
-    t' <- cTy t
+    t' <- cTy $ ty v
     let pack =
           Pack
             tEnv
             do
               Tuple
-                [ (Var zCode `Ann` tRawCode) `appT` fmap TVar bs
-                , Var zEnv `Ann` tEnv
+                [ Var zCode tRawCode `appT` fmap TVar bs
+                , Var zEnv tEnv
                 ]
-                `Ann` tTuple [tCode, tEnv]
             t'
-            `Ann` t'
     let vCode =
           Fix
             Nothing
@@ -108,22 +105,19 @@ cVal v@(u `Ann` t) = case u of
             do
               maybe id (\x' -> Let $ Bind x' pack) x $
                 foldr
-                  do \(i, y) -> Let (At y i (Var zEnv `Ann` tEnv))
+                  do \(i, y) -> Let (At y i (Var zEnv tEnv))
                   e'
                   (zip [1 ..] (M.keys ys))
-            `Ann` tRawCode
-    vEnv <- Tuple <$> mapM (\(y, s) -> Ann (Var y) <$> cTy s) (M.toList ys)
+    vEnv <- Tuple <$> mapM (\(y, s) -> Var y <$> cTy s) (M.toList ys)
     writer
       ( Pack
           tEnv
           do
             Tuple
-              [ (Var zCode `Ann` tRawCode) `appT` fmap TVar bs
-              , vEnv `Ann` tEnv
+              [ Var zCode tRawCode `appT` fmap TVar bs
+              , vEnv
               ]
-              `Ann` tTuple [tCode, tEnv]
           t'
-          `Ann` t'
       , M.singleton zCode vCode
       )
   e@AppT{} -> errorK e
