@@ -20,6 +20,7 @@ where
 import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.RWS
+import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.Char
@@ -100,6 +101,10 @@ instance MonadUniq m => MonadUniq (StateT s m) where
 
 
 instance (Monoid w, MonadUniq m) => MonadUniq (WriterT w m) where
+  fresh = lift fresh
+
+
+instance MonadUniq m => MonadUniq (ReaderT r m) where
   fresh = lift fresh
 
 

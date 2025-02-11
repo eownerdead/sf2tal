@@ -49,16 +49,24 @@ currying =
 {- FOURMOLU_ENABLE -}
 
 
+iter :: (MonadUniq m, MonadError T.Text m) => Int -> M.Tm -> m M.Tm
+iter n k
+  | n == 0 = pure k
+  | otherwise = do
+      k' <- M.simp k
+      liftEither $ withError ("K simp: " <>) $ M.ckTm k'
+      iter (n - 1) k'
+
+
 run :: Tm -> Either T.Text Tal.Val
 run e = runUniq $ runExceptT do
   e' <- liftEither $ ty e
   k <- M.kProg e'
   liftEither $ withError ("K: " <>) $ M.ckTm k
 
-  let kSimp = M.simp k
-  liftEither $ withError ("K simp: " <>) $ M.ckTm kSimp
+  k' <- iter 25 k
 
-  c <- M.cProg kSimp
+  c <- M.cProg k'
   liftEither $ withError ("C: " <>) $ M.ckProg c
 
   a <- M.aProg c

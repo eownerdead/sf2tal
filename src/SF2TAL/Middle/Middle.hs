@@ -22,6 +22,7 @@ module SF2TAL.Middle.Middle
   )
 where
 
+import Control.Exception (assert)
 import Data.Foldable
 import Data.Map qualified as M
 import Data.Set qualified as S
@@ -136,10 +137,11 @@ tTupleInitedToN :: Int -> [Ty] -> Ty
 tTupleInitedToN i ts = foldr tTupleInitN (tTupleUninited ts) [1 .. i]
 
 
-tsubst :: TName -> Ty -> Ty -> Ty
-tsubst a t' = transformOf subTys \case
-  TVar b | a == b -> t'
-  x -> x
+tsubst :: SubTys a => TName -> Ty -> a -> a
+tsubst a t' =
+  subTys %~ \case
+    TVar b | a == b -> t'
+    x -> tsubst a t' x
 
 
 instance Ftv Ty where
@@ -203,9 +205,9 @@ instance PP.Pretty Val where
 
 instance SubTys Val where
   subTys f = \case
-    Var x t -> pure $ Var x t
+    Var x t -> Var x <$> f t
     IntLit i -> pure $ IntLit i
-    Fix x as xs e -> Fix x as xs <$> subTys f e
+    Fix x as xs e -> Fix x as <$> traverse (_2 f) xs <*> subTys f e
     Tuple vs -> Tuple <$> traverse (subTys f) vs
     v `AppT` t -> AppT <$> subTys f v <*> f t
     Pack t1 v t2 -> Pack <$> f t1 <*> subTys f v <*> f t2
@@ -265,14 +267,21 @@ appT :: Val -> [Ty] -> Val
 appT = foldl AppT
 
 
--- v[x::=v']
-subst :: SubVals a => Name -> Val -> a -> a
-subst x v' =
-  subVals %~ \case
-    Var y t
-      | x == y -> v'
-      | otherwise -> Var y t
-    v -> subst x v' v
+subst :: (MonadUniq m, SubVals a) => M.Map Name Val -> a -> m a
+subst sub =
+  subVals \case
+    Var x t
+      | Just v' <- M.lookup x sub ->
+          assert (t == ty v') do pure v'
+      | otherwise -> pure $ Var x t
+    v@(Fix x as xs e) -> do
+      x' <- traverse (const fresh) x
+      let sub1 = M.fromList $ toList $ liftA2 (\y y' -> (y, Var y' (ty v))) x x'
+      xs' <- traverse (const fresh) xs
+      let xs'' = zip xs' (fmap snd xs)
+      let sub2 = M.fromList $ zip (fmap fst xs) $ fmap (uncurry Var) xs''
+      Fix x' as xs'' <$> subst (sub <> sub1 <> sub2) e
+    v -> subst sub v
 
 
 data Tm where
