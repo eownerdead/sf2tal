@@ -13,6 +13,7 @@ common common
   default-language: GHC2021
   default-extensions:
     BlockArguments,
+    DataKinds,
     DerivingStrategies,
     DerivingVia,
     DuplicateRecordFields,
@@ -23,14 +24,17 @@ common common
     OverloadedStrings,
     ParallelListComp,
     TemplateHaskell,
+    TypeFamilies,
   ghc-options:
     -Wall
     -Wcompat
     -Widentities
     -Wmissing-deriving-strategies
+    -fplugin=Effectful.Plugin
   build-depends:
     base ^>=4.18.2.1,
-    mtl ^>=2.3.1,
+    effectful-core ^>=2.3.1.0,
+    effectful-plugin ^>=1.1.0.3,
     text ^>=2.0.2,
     containers ^>=0.6.7,
     microlens-platform ^>=0.4.3.5,
@@ -41,10 +45,12 @@ library sf2tal-lib
   import: common
   hs-source-dirs: src
   build-depends:
+    effectful-microlens ^>=0.1.0.0,
     template-haskell ^>=2.20.0.0,
   exposed-modules:
     SF2TAL,
     SF2TAL.Utils,
+    SF2TAL.Uniq,
     SF2TAL.F,
     SF2TAL.Middle,
     SF2TAL.Middle.Opt,

@@ -3,18 +3,20 @@ module SF2TAL.Middle.FromF
   )
 where
 
-import Control.Monad.State
 import Data.Map qualified as M
-import Lens.Micro.Platform
+import Effectful
+import Effectful.State.Static.Local
+import Effectful.State.Static.Local.Microlens
+import Lens.Micro.Platform hiding (preuse)
 import SF2TAL.F qualified as F
 import SF2TAL.Middle.Middle
-import SF2TAL.Utils
+import SF2TAL.Uniq
 
 
-type KT = StateT (M.Map F.Name Name)
+type K es = (Uniq :> es, State (M.Map F.Name Name) :> es)
 
 
-freshen :: MonadUniq m => F.Name -> KT m Name
+freshen :: K es => F.Name -> Eff es Name
 freshen x =
   preuse (ix x) >>= \case
     Just x' -> pure x'
@@ -23,7 +25,7 @@ freshen x =
       state \s -> (x', s & at x ?~ x')
 
 
-kTy :: MonadUniq m => F.Ty -> KT m Ty
+kTy :: K es => F.Ty -> Eff es Ty
 kTy = \case
   F.TVar a -> TVar <$> freshen a
   F.TInt -> pure TInt
@@ -35,17 +37,18 @@ kTy = \case
   F.TTuple ts -> tTuple <$> traverse kTy ts
 
 
-kCont :: MonadUniq m => F.Ty -> KT m Ty
+kCont :: K es => F.Ty -> Eff es Ty
 kCont t = do
   t' <- kTy t
   pure $ TFix [] [t']
 
 
-kProg :: MonadUniq m => F.Tm -> m Tm
-kProg v = evalStateT (kExp v (pure . Halt)) mempty
+kProg :: Uniq :> es => F.Tm -> Eff es Tm
+kProg v = evalState mempty do
+  kExp v (pure . Halt)
 
 
-kExp :: MonadUniq m => F.Tm -> (Val -> KT m Tm) -> KT m Tm
+kExp :: K es => F.Tm -> (Val -> Eff es Tm) -> Eff es Tm
 kExp (u `F.Ann` t) k = case u of
   F.Var x -> do
     x' <- freshen x
@@ -95,7 +98,7 @@ kExp (u `F.Ann` t) k = case u of
 kExp x _ = error $ "unannotated: " <> show x
 
 
-unEta :: MonadUniq m => (Val -> m Tm) -> Ty -> m Val
+unEta :: K es => (Val -> Eff es Tm) -> Ty -> Eff es Val
 unEta k t = do
   k' <- fresh
   un <- k $ Var k' t

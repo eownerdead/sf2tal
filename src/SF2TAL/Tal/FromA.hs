@@ -1,14 +1,18 @@
 module SF2TAL.Tal.FromA (tProg) where
 
 import Control.Monad
-import Control.Monad.RWS
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Data.Text qualified as T
-import GHC.Generics
-import Lens.Micro.Platform
+import Effectful
+import Effectful.Labeled
+import Effectful.Reader.Static
+import Effectful.Reader.Static.Microlens
+import Effectful.Writer.Static.Local
+import Lens.Micro.Platform hiding (preview, view)
 import SF2TAL.Middle qualified as M
 import SF2TAL.Tal.Tal
+import SF2TAL.Uniq
 import SF2TAL.Utils
 
 
@@ -37,50 +41,34 @@ data TalEnv = TalEnv
 makeFieldsId ''TalEnv
 
 
-data TalLog = TalLog
-  { heaps :: Heaps
-  , tHeap :: THeap
-  }
+type Tal es =
+  ( Uniq :> es
+  , Reader TalEnv :> es
+  , Labeled "heaps" (Writer Heaps) :> es
+  , Labeled "tHeap" (Writer THeap) :> es
+  )
 
 
-deriving stock instance Show TalLog
-
-
-deriving stock instance Generic TalLog
-
-
-deriving via (Generically TalLog) instance Semigroup TalLog
-
-
-deriving via (Generically TalLog) instance Monoid TalLog
-
-
-makeFieldsId ''TalLog
-
-
-type TalT m a = RWST TalEnv TalLog () m a
-
-
-tProg :: MonadUniq m => M.Prog -> m (Prog, THeap)
+tProg :: Uniq :> es => M.Prog -> Eff es (Prog, THeap)
 tProg p = do
-  (is, hs) <-
-    evalRWST
-      (tProg' p)
-      TalEnv{vals = mempty, tCtx = mempty, tRegFile = mempty}
-      ()
-  pure (Prog (hs ^. heaps) mempty is, hs ^. tHeap)
+  ((is, ths), hs) <- runReader TalEnv{vals = mempty, tCtx = mempty, tRegFile = mempty} $
+    runLabeled @"heaps" runWriter $ runLabeled @"tHeap" runWriter do
+      tProg' p
+  pure (Prog hs mempty is, ths)
 
 
-tProg' :: MonadUniq m => M.Prog -> TalT m Seq
+tProg' :: Tal es => M.Prog -> Eff es Seq
 tProg' (M.LetRec xs e) = do
   vs <- traverse (const fresh) xs
   local (vals .~ fmap Label vs) do
     hs' <- traverse tHVal $ M.mapKeys (vs M.!) xs
     is <- tExp e
-    writer (is, TalLog hs' $ tTy . M.ty <$> M.mapKeys (vs M.!) xs)
+    labeled @"heaps" $ tell hs'
+    labeled @"tHeap" $ tell $ fmap (tTy . M.ty) $ M.mapKeys (vs M.!) xs
+    pure is
 
 
-tHVal :: MonadUniq m => M.Val -> TalT m HVal
+tHVal :: Tal es => M.Val -> Eff es HVal
 tHVal = \case
   M.Fix Nothing as xs e -> do
     let trs = M.fromList [(A i, tTy $ x ^. _2) | i <- [1 ..] | x <- xs]
@@ -94,7 +82,7 @@ tHVal = \case
   h -> error $ "not HVal: " <> T.unpack (prettyText h)
 
 
-tVal :: MonadUniq m => M.Val -> TalT m Val
+tVal :: Tal es => M.Val -> Eff es Val
 tVal = \case
   M.Var x _t ->
     preview (vals . ix x) >>= \case
@@ -106,7 +94,7 @@ tVal = \case
   v -> error $ "not Val: " <> T.unpack (prettyText v)
 
 
-tExp :: MonadUniq m => M.Tm -> TalT m Seq
+tExp :: Tal es => M.Tm -> Eff es Seq
 tExp = \case
   M.Let d e -> case d of
     M.Bind x v -> do
@@ -201,10 +189,8 @@ tExp = \case
     v' <- tVal v
     tCtx' <- view tCtx
     trs <- view tRegFile
-    tell $
-      TalLog
-        do M.singleton l $ Code (S.toList tCtx') trs is2
-        do M.singleton l $ TCode (S.toList tCtx') trs
+    labeled @"heaps" $ tell do M.singleton l $ Code (S.toList tCtx') trs is2
+    labeled @"tHeap" $ tell do M.singleton l $ TCode (S.toList tCtx') trs
     pure $ Mov r v' `Seq` Bnz r (Label l) `Seq` is1
   M.Halt v -> do
     v' <- tVal v

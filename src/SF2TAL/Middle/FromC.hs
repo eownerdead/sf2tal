@@ -4,21 +4,24 @@ module SF2TAL.Middle.FromC
 where
 
 import Control.Monad
-import Control.Monad.Writer
+import Effectful
+import Effectful.Writer.Static.Local
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
-import SF2TAL.Utils
+import SF2TAL.Uniq
 
 
-type AT = WriterT [Decl]
+type A es = (Uniq :> es, Writer [Decl] :> es)
 
 
 errorC :: Show a => a -> b
 errorC x = error $ "not in C: " <> show x
 
 
-let' :: Monad m => AT m Tm -> m Tm
-let' m = uncurry (foldr Let) <$> runWriterT m
+let' :: Uniq :> es => Eff (Writer [Decl] : es) Tm -> Eff es Tm
+let' m = do
+  (e, d) <- runWriter @[Decl] m
+  pure $ foldr Let e d
 
 
 aTy :: Ty -> Ty
@@ -30,18 +33,18 @@ aTy = \case
   TExists a t -> TExists a $ aTy t
 
 
-aProg :: MonadUniq m => Prog -> m Prog
+aProg :: Uniq :> es => Prog -> Eff es Prog
 aProg (LetRec xs e) = LetRec <$> traverse aHval xs <*> aExp e
 
 
-aHval :: MonadUniq m => Val -> m Val
+aHval :: Uniq :> es => Val -> Eff es Val
 aHval = \case
   Fix Nothing as xs e ->
     Fix Nothing as (xs <&> _2 %~ aTy) <$> aExp e
   v -> error $ "unannotated: " <> show v
 
 
-aExp :: MonadUniq m => Tm -> m Tm
+aExp :: Uniq :> es => Tm -> Eff es Tm
 aExp = \case
   Let d e -> let' $ aDec d >> aExp e
   App v [] vs -> let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs
@@ -50,7 +53,7 @@ aExp = \case
   Halt v -> let' $ Halt <$> aVal v
 
 
-aDec :: MonadUniq m => Decl -> AT m ()
+aDec :: A es => Decl -> Eff es ()
 aDec = \case
   Bind x v -> do
     v' <- aVal v
@@ -69,7 +72,7 @@ aDec = \case
   d@Update{} -> errorC d
 
 
-aVal :: MonadUniq m => Val -> AT m Val
+aVal :: A es => Val -> Eff es Val
 aVal = \case
   Var x t -> pure $ Var x (aTy t)
   IntLit i -> pure $ IntLit i
@@ -86,14 +89,13 @@ aVal = \case
 
     y0 <- fresh
     ys <- replicateM n fresh
-    writer
-      ( Var (last (y0 : ys)) (aTy $ ty v)
-      , Malloc y0 ts
-          : [ Update y (Var y' $ tTupleInitedToN (i - 1) ts) i v'
-            | y <- ys
-            | y' <- y0 : ys
-            | v' <- vs'
-            | i <- [1 ..]
-            ]
-      )
+    tell $
+      Malloc y0 ts
+        : [ Update y (Var y' $ tTupleInitedToN (i - 1) ts) i v'
+          | y <- ys
+          | y' <- y0 : ys
+          | v' <- vs'
+          | i <- [1 ..]
+          ]
+    pure $ Var (last (y0 : ys)) (aTy $ ty v)
   v@Fix{} -> errorC v

@@ -4,11 +4,6 @@ module SF2TAL.Utils
   , int2Text
   , universeOf
   , universeOnOf
-  , MonadUniq (..)
-  , UniqT
-  , Uniq
-  , runUniqT
-  , runUniq
   , brackets
   , parens
   , angles
@@ -18,14 +13,8 @@ module SF2TAL.Utils
 where
 
 import Control.Applicative
-import Control.Monad.Except
-import Control.Monad.RWS
-import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Writer
 import Data.Char
 import Data.Coerce
-import Data.Functor.Identity
 import Data.Monoid
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as LT
@@ -72,48 +61,6 @@ universeOf' l = go
 
 universeOnOf :: Getting (Endo [a]) s a -> Getting (Endo [a]) a a -> s -> [a]
 universeOnOf b p x = appEndo (coerce b (universeOf' p) x) []
-
-
-class Monad m => MonadUniq m where
-  fresh :: m Int
-
-
-type UniqT = StateT Int
-
-
-type Uniq = UniqT Identity
-
-
-instance {-# OVERLAPS #-} Monad m => MonadUniq (UniqT m) where
-  fresh = state $ \n -> (n, n + 1)
-
-
-instance MonadUniq m => MonadUniq (ExceptT e m) where
-  fresh = lift fresh
-
-
-instance (Monoid w, MonadUniq m) => MonadUniq (RWST r w s m) where
-  fresh = lift fresh
-
-
-instance MonadUniq m => MonadUniq (StateT s m) where
-  fresh = lift fresh
-
-
-instance (Monoid w, MonadUniq m) => MonadUniq (WriterT w m) where
-  fresh = lift fresh
-
-
-instance MonadUniq m => MonadUniq (ReaderT r m) where
-  fresh = lift fresh
-
-
-runUniqT :: Monad m => UniqT m a -> m a
-runUniqT m = evalStateT m 0
-
-
-runUniq :: Uniq a -> a
-runUniq m = evalState m 0
 
 
 brackets' :: PP.Doc a -> PP.Doc a -> PP.Doc a -> [PP.Doc a] -> PP.Doc a

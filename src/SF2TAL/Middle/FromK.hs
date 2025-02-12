@@ -4,22 +4,23 @@ module SF2TAL.Middle.FromK
 where
 
 import Control.Monad
-import Control.Monad.Writer
 import Data.Map qualified as M
 import Data.Set qualified as S
+import Effectful
+import Effectful.Writer.Static.Local
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
-import SF2TAL.Utils
+import SF2TAL.Uniq
 
 
 errorK :: Show a => a -> b
 errorK x = error $ "not in K: " <> show x
 
 
-type CT m = WriterT (M.Map Name Val) m
+type C es = (Uniq :> es, Writer (M.Map Name Val) :> es)
 
 
-cTy :: MonadUniq m => Ty -> CT m Ty
+cTy :: C es => Ty -> Eff es Ty
 cTy = \case
   TVar a -> pure $ TVar a
   TInt -> pure TInt
@@ -31,13 +32,13 @@ cTy = \case
   t@TExists{} -> error $ "not in K: " <> show t
 
 
-cProg :: MonadUniq m => Tm -> m Prog
+cProg :: Uniq :> es => Tm -> Eff es Prog
 cProg p = do
-  (e, xs) <- runWriterT do cExp p
+  (e, xs) <- runWriter do cExp p
   pure $ LetRec xs e
 
 
-cExp :: MonadUniq m => Tm -> CT m Tm
+cExp :: C es => Tm -> Eff es Tm
 cExp = \case
   Let d e -> Let <$> cDec d <*> cExp e
   App v ts vs -> do
@@ -63,7 +64,7 @@ cExp = \case
   Halt v -> Halt <$> cVal v
 
 
-cDec :: MonadUniq m => Decl -> CT m Decl
+cDec :: C es => Decl -> Eff es Decl
 cDec = \case
   Bind x v -> Bind x <$> cVal v
   At x i v -> At x i <$> cVal v
@@ -73,7 +74,7 @@ cDec = \case
   d@Update{} -> errorK d
 
 
-cVal :: MonadUniq m => Val -> CT m Val
+cVal :: C es => Val -> Eff es Val
 cVal = \case
   Var x t -> Var x <$> cTy t
   IntLit i -> pure $ IntLit i
@@ -109,16 +110,15 @@ cVal = \case
                   e'
                   (zip [1 ..] (M.keys ys))
     vEnv <- Tuple <$> mapM (\(y, s) -> Var y <$> cTy s) (M.toList ys)
-    writer
-      ( Pack
-          tEnv
-          do
-            Tuple
-              [ Var zCode tRawCode `appT` fmap TVar bs
-              , vEnv
-              ]
-          t'
-      , M.singleton zCode vCode
-      )
+    tell $ M.singleton zCode vCode
+    pure $
+      Pack
+        tEnv
+        ( Tuple
+            [ Var zCode tRawCode `appT` fmap TVar bs
+            , vEnv
+            ]
+        )
+        t'
   e@AppT{} -> errorK e
   e@Pack{} -> errorK e

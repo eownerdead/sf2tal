@@ -1,11 +1,13 @@
 module SF2TAL.Tal.Tc (ckProg) where
 
 import Control.Monad
-import Control.Monad.Except
-import Control.Monad.Reader
 import Data.Foldable
 import Data.Text qualified as T
-import Lens.Micro.Platform
+import Effectful
+import Effectful.Error.Static
+import Effectful.Reader.Static
+import Effectful.Reader.Static.Microlens
+import Lens.Micro.Platform hiding (preview, view)
 import SF2TAL.Tal.Tal
 import SF2TAL.Utils
 
@@ -19,31 +21,31 @@ data TcEnv = TcEnv
 makeFieldsId ''TcEnv
 
 
-type Tc = ReaderT TcEnv (Either T.Text)
+type Tc es = (Reader TcEnv :> es, Error T.Text :> es)
 
 
-ckProg :: THeap -> Prog -> Either T.Text ()
-ckProg ths p = runReaderT (ckProg' p) TcEnv{tHeap = ths, tRegFile = mempty}
+ckProg :: Error T.Text :> es => THeap -> Prog -> Eff es ()
+ckProg ths p = runReader TcEnv{tHeap = ths, tRegFile = mempty} do ckProg' p
 
 
-ckProg' :: Prog -> Tc ()
+ckProg' :: Tc es => Prog -> Eff es ()
 ckProg' (Prog h r is) = do
   ckHeaps h
   tRegFile' <- tyRegFile r
   local (tRegFile .~ tRegFile') do tySeq is
 
 
-ckHeaps :: Heaps -> Tc ()
+ckHeaps :: Tc es => Heaps -> Eff es ()
 ckHeaps = traverse_ ckHeapVal
 
 
-ckHeapVal :: HVal -> Tc ()
+ckHeapVal :: Tc es => HVal -> Eff es ()
 ckHeapVal = \case
   Code _as trs is -> local (tRegFile .~ trs) do tySeq is
   Tuple{} -> pure ()
 
 
-tySeq :: Seq -> Tc ()
+tySeq :: Tc es => Seq -> Eff es ()
 tySeq (Seq i is) = case i of
   Arith _p rd rs v -> do
     tyR rs >>= \t ->
@@ -102,18 +104,18 @@ tySeq (Halt t) =
         "Halt: r1 is not t, but " <> prettyText t'
 
 
-tyR :: R -> Tc Ty
+tyR :: Tc es => R -> Eff es Ty
 tyR r =
   preview (tRegFile . ix r) >>= \case
     Just t -> pure t
     _ -> throwError $ "R: undefined register " <> prettyText r
 
 
-tyRegFile :: RegFile -> Tc TRegFile
+tyRegFile :: Tc es => RegFile -> Eff es TRegFile
 tyRegFile = traverse tyWVal
 
 
-tyWVal :: Val -> Tc Ty
+tyWVal :: Tc es => Val -> Eff es Ty
 tyWVal = \case
   Label l ->
     preview (tHeap . ix l) >>= \case
@@ -132,7 +134,7 @@ tyWVal = \case
   w -> throwError $ "not word value: " <> prettyText w
 
 
-tyVal :: Val -> Tc Ty
+tyVal :: Tc es => Val -> Eff es Ty
 tyVal = \case
   Reg r -> tyR r
   AppT v t ->

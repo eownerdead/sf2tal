@@ -5,10 +5,11 @@ module SF2TAL.Middle.Tc
 where
 
 import Control.Monad
-import Control.Monad.Except
-import Control.Monad.Reader
 import Data.Map qualified as M
 import Data.Text qualified as T
+import Effectful
+import Effectful.Error.Static
+import Effectful.Reader.Static
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
 import SF2TAL.Utils
@@ -17,10 +18,10 @@ import SF2TAL.Utils
 type Env = M.Map Name Ty
 
 
-type Tc = ReaderT Env (Either T.Text)
+type Tc es = (Reader Env :> es, Error T.Text :> es)
 
 
-lookupVar :: Name -> Tc Ty
+lookupVar :: Tc es => Name -> Eff es Ty
 lookupVar x = do
   env <- ask
   if
@@ -28,21 +29,21 @@ lookupVar x = do
     | otherwise -> throwError $ "unknown variable " <> int2Text x
 
 
-ckProg :: Prog -> Either T.Text ()
-ckProg p = runReaderT (ckProg' p) mempty
+ckProg :: Error T.Text :> es => Prog -> Eff es ()
+ckProg p = runReader mempty do ckProg' p
 
 
-ckProg' :: Prog -> Tc ()
+ckProg' :: Tc es => Prog -> Eff es ()
 ckProg' (LetRec xs e) = local (fmap ty xs <>) do
   mapM_ ckVal xs
   ckTm' e
 
 
-ckTm :: Tm -> Either T.Text ()
-ckTm e = runReaderT (ckTm' e) mempty
+ckTm :: Error T.Text :> es => Tm -> Eff es ()
+ckTm e = runReader mempty do ckTm' e
 
 
-ckTm' :: Tm -> Tc ()
+ckTm' :: Tc es => Tm -> Eff es ()
 ckTm' = \case
   Let d e -> do
     ckDecl d $ ckTm' e
@@ -68,7 +69,7 @@ ckTm' = \case
   Halt v -> void $ ckVal v
 
 
-ckDecl :: Decl -> Tc a -> Tc a
+ckDecl :: Tc es => Decl -> Eff es a -> Eff es a
 ckDecl d k = case d of
   Bind x v -> do
     tv <- ckVal v
@@ -109,7 +110,7 @@ ckDecl d k = case d of
           "Update: v1 is not Tuple or invalid i: " <> prettyText tv1
 
 
-ckVal :: Val -> Tc Ty
+ckVal :: Tc es => Val -> Eff es Ty
 ckVal v = do
   t <- case v of
     Var x t -> do

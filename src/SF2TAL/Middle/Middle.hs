@@ -27,10 +27,12 @@ import Data.Foldable
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Data.Text qualified as T
+import Effectful
 import Lens.Micro.Platform
 import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim)
+import SF2TAL.Uniq
 import SF2TAL.Utils
 
 
@@ -267,7 +269,7 @@ appT :: Val -> [Ty] -> Val
 appT = foldl AppT
 
 
-subst :: (MonadUniq m, SubVals a) => M.Map Name Val -> a -> m a
+subst :: (Uniq :> es, SubVals a) => M.Map Name Val -> a -> Eff es a
 subst sub =
   subVals \case
     Var x t

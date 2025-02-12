@@ -7,3 +7,5 @@
 - group:
     name: lens
     enabled: true
+- ignore:
+    name: "Use <$>"

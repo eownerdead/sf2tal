@@ -4,10 +4,11 @@ module SF2TAL.F.Tc
 where
 
 import Control.Monad
-import Control.Monad.Except
-import Control.Monad.Reader
 import Data.Map qualified as M
 import Data.Text as T
+import Effectful
+import Effectful.Error.Static
+import Effectful.Reader.Static
 import Lens.Micro.Platform
 import SF2TAL.F.F
 
@@ -15,18 +16,18 @@ import SF2TAL.F.F
 type Env = M.Map Name Ty
 
 
-type Tc = ReaderT Env (Either T.Text)
+type Tc es = (Reader Env :> es, Error T.Text :> es)
 
 
-extendEnv :: Name -> Ty -> Tc a -> Tc a
+extendEnv :: Tc es => Name -> Ty -> Eff es a -> Eff es a
 extendEnv x t = local do M.insert x t
 
 
-ty :: Tm -> Either T.Text Tm
-ty e = (`runReaderT` mempty) do ty' e
+ty :: Error T.Text :> es => Tm -> Eff es Tm
+ty e = runReader mempty do ty' e
 
 
-ty' :: Tm -> Tc Tm
+ty' :: (Reader Env :> es, Error T.Text :> es) => Tm -> Eff es Tm
 ty' (Var x) = do
   env <- ask
   case env ^? ix x of

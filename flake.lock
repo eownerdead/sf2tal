@@ -1,5 +1,28 @@
 {
   "nodes": {
+    "effectful-microlens": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1739388142,
+        "narHash": "sha256-MmLc3Ex4C6fYETvboqIi0jaI26hmy5yPgyQLH2RayaQ=",
+        "ref": "refs/heads/main",
+        "rev": "4a9f6c31069aa874415e5365d192bb2ac38505e1",
+        "revCount": 2,
+        "type": "git",
+        "url": "https://codeberg.org/eownerdead/effectful-microlens"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://codeberg.org/eownerdead/effectful-microlens"
+      }
+    },
     "flake-parts": {
       "inputs": {
         "nixpkgs-lib": "nixpkgs-lib"
@@ -48,6 +71,7 @@
     },
     "root": {
       "inputs": {
+        "effectful-microlens": "effectful-microlens",
         "flake-parts": "flake-parts",
         "nixpkgs": "nixpkgs"
       }

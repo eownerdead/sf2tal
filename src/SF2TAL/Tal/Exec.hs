@@ -3,19 +3,23 @@ module SF2TAL.Tal.Exec
   , HasHeaps (..)
   , HasTHeap (..)
   , HasRegFile (..)
-  , ExecT
+  , Exec
   , getProg
   , exec
   , step
   )
 where
 
-import Control.Monad.State
 import Data.Text qualified as T
-import Lens.Micro.Platform
+import Effectful
+import Effectful.Error.Static
+import Effectful.State.Static.Local
+import Effectful.State.Static.Local.Microlens
+import Lens.Micro.Platform hiding (preuse, use, (%=), (?=))
 import SF2TAL.F (Prim (..))
 import SF2TAL.Tal.Tal
 import SF2TAL.Tal.Tc
+import SF2TAL.Uniq
 import SF2TAL.Utils
 
 
@@ -29,35 +33,33 @@ data ExecEnv = ExecEnv
 makeFieldsId ''ExecEnv
 
 
-type ExecT m = StateT ExecEnv m
+type Exec es = (Uniq :> es, State ExecEnv :> es)
 
 
-getProg :: MonadUniq m => Seq -> ExecT m Prog
+getProg :: Exec es => Seq -> Eff es Prog
 getProg is = do
   hs <- use heaps
   rs <- use regFile
   pure $ Prog hs rs is
 
 
-exec :: MonadUniq m => THeap -> Prog -> m Val
+exec :: (Uniq :> es, Error T.Text :> es) => THeap -> Prog -> Eff es Val
 exec ths (Prog hs rs is) = do
   (_, env) <-
-    runStateT
-      (exec' is)
-      ExecEnv{heaps = hs, tHeap = ths, regFile = rs}
+    runState ExecEnv{heaps = hs, tHeap = ths, regFile = rs} do
+      exec' is
   pure $ env ^. regFile ^?! ix (A 1)
   where
-    exec' :: MonadUniq m => Seq -> ExecT m Seq
+    exec' :: (Exec es, Error T.Text :> es) => Seq -> Eff es Seq
     exec' (Halt t) = pure $ Halt t
     exec' is' = do
       p <- getProg is'
       ths' <- use tHeap
-      case ckProg ths' p of
-        Right () -> exec' =<< step is'
-        Left e -> error $ unlines $ fmap T.unpack [prettyText p, e]
+      ckProg ths' p
+      exec' =<< step is'
 
 
-step :: MonadUniq m => Seq -> ExecT m Seq
+step :: Exec es => Seq -> Eff es Seq
 step (Seq i is) = case i of
   Arith p rd rs v -> do
     rs' <- reg rs
@@ -129,21 +131,21 @@ step (Jmp v) = val v >>= \v' -> app v' id
 step (Halt t) = pure $ Halt t
 
 
-heap :: MonadUniq m => Name -> ExecT m HVal
+heap :: Exec es => Name -> Eff es HVal
 heap l =
   preuse (heaps . ix l) >>= \case
     Just v -> pure v
     _ -> error $ T.unpack $ "undefined heap label " <> prettyText l
 
 
-reg :: MonadUniq m => R -> ExecT m Val
+reg :: Exec es => R -> Eff es Val
 reg r =
   preuse (regFile . ix r) >>= \case
     Just v -> pure v
     _ -> error $ T.unpack $ "undefined register " <> prettyText r
 
 
-val :: MonadUniq m => Val -> ExecT m Val
+val :: Exec es => Val -> Eff es Val
 val = \case
   Reg r -> reg r
   AppT v t -> AppT <$> val v <*> pure t

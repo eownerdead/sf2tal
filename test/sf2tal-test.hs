@@ -1,12 +1,13 @@
 module Main (main) where
 
-import Control.Monad.Except
 import Data.Text qualified as T
+import Effectful
+import Effectful.Error.Static
 import SF2TAL.F
 import SF2TAL.Middle qualified as M
 import SF2TAL.Middle.Opt qualified as M
 import SF2TAL.Tal qualified as Tal
-import SF2TAL.Utils
+import SF2TAL.Uniq
 import Test.Hspec
 
 
@@ -49,31 +50,31 @@ currying =
 {- FOURMOLU_ENABLE -}
 
 
-iter :: (MonadUniq m, MonadError T.Text m) => Int -> M.Tm -> m M.Tm
+iter :: (Uniq :> es, Error T.Text :> es) => Int -> M.Tm -> Eff es M.Tm
 iter n k
   | n == 0 = pure k
   | otherwise = do
       k' <- M.simp k
-      liftEither $ withError ("K simp: " <>) $ M.ckTm k'
+      M.ckTm k'
       iter (n - 1) k'
 
 
 run :: Tm -> Either T.Text Tal.Val
-run e = runUniq $ runExceptT do
-  e' <- liftEither $ ty e
+run e = runPureEff $ runUniq $ runErrorNoCallStack do
+  e' <- ty e
   k <- M.kProg e'
-  liftEither $ withError ("K: " <>) $ M.ckTm k
+  M.ckTm k
 
   k' <- iter 25 k
 
   c <- M.cProg k'
-  liftEither $ withError ("C: " <>) $ M.ckProg c
+  M.ckProg c
 
   a <- M.aProg c
-  liftEither $ withError ("A: " <>) $ M.ckProg a
+  M.ckProg a
 
   (tal, ths) <- Tal.tProg a
-  liftEither $ withError ("T: " <>) $ Tal.ckProg ths tal
+  Tal.ckProg ths tal
   Tal.exec ths tal
 
 

@@ -4,8 +4,10 @@ module SF2TAL.Middle.Opt
 where
 
 import Data.Map qualified as M
+import Effectful
 import SF2TAL.F (Prim (..))
 import SF2TAL.Middle
+import SF2TAL.Uniq
 import SF2TAL.Utils
 
 
@@ -62,11 +64,11 @@ threshold :: Int
 threshold = 100
 
 
-simp :: MonadUniq m => Tm -> m Tm
+simp :: Uniq :> es => Tm -> Eff es Tm
 simp = tm
 
 
-tm :: MonadUniq m => Tm -> m Tm
+tm :: Uniq :> es => Tm -> Eff es Tm
 tm = \case
   Let (Bind x v) e
     | n == 0 -> tm e
@@ -101,7 +103,7 @@ tm = \case
   Halt v -> Halt <$> val v
 
 
-val :: MonadUniq m => Val -> m Val
+val :: Uniq :> es => Val -> Eff es Val
 val = subVals \case
   Fix x as xs e
     | Just x' <- x
