@@ -1,40 +1,39 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-    utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      utils,
-    }:
-    utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-      in
-      rec {
-        formatter = pkgs.nixfmt-rfc-style;
+    inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+        "x86_64-darwin"
+      ];
 
-        packages.sf2tal = pkgs.haskellPackages.developPackage {
-          root = ./.;
-          returnShellEnv = true;
-          withHoogle = false;
-        };
+      perSystem =
+        { self', pkgs, ... }:
+        {
+          formatter = pkgs.nixfmt-rfc-style;
 
-        devShells.default = packages.sf2tal.overrideAttrs (old: {
-          nativeBuildInputs =
-            old.nativeBuildInputs
-            ++ (with pkgs; [
-              editorconfig-checker
+          packages.sf2tal = pkgs.haskellPackages.developPackage {
+            root = ./.;
+          };
+
+          devShells.default = pkgs.haskellPackages.shellFor {
+            packages = hpkgs: [
+              self'.packages.sf2tal
+            ];
+            nativeBuildInputs = with pkgs; [
               nixfmt-rfc-style
               cabal-install
               hlint
               haskellPackages.fourmolu
-            ]);
-        });
-      }
-    );
+            ];
+          };
+        };
+    };
 }
