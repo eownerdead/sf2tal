@@ -51,15 +51,16 @@ instance Eq Ty where
 
 
 tsubst :: TName -> Ty -> Ty -> Ty
-tsubst a t' (TVar b)
-  | a == b = t'
-  | otherwise = TVar b
-tsubst _ _ TInt = TInt
-tsubst a t' (t1 `TFun` t2) = tsubst a t' t1 `TFun` tsubst a t' t2
-tsubst a t' (TForall b t)
-  | a == b = TForall b t
-  | otherwise = TForall b (tsubst a t' t)
-tsubst a t' (TTuple ts) = TTuple $ fmap (tsubst a t') ts
+tsubst a t' = \case
+  TVar b
+    | a == b -> t'
+    | otherwise -> TVar b
+  TInt -> TInt
+  t1 `TFun` t2 -> tsubst a t' t1 `TFun` tsubst a t' t2
+  TForall b t
+    | a == b -> TForall b t
+    | otherwise -> TForall b (tsubst a t' t)
+  TTuple ts -> TTuple $ fmap (tsubst a t') ts
 
 
 infixr 5 `TFun`
@@ -131,9 +132,10 @@ deriving stock instance Show Prim
 
 
 instance Pretty Prim where
-  pretty Add = "+"
-  pretty Sub = "-"
-  pretty Mul = "*"
+  pretty = \case
+    Add -> "+"
+    Sub -> "-"
+    Mul -> "*"
 
 
 infixl 6 #+
@@ -158,5 +160,6 @@ infixl 7 #*
 
 
 ann :: Tm -> Ty
-ann (Ann _e t) = t
-ann x = error $ "unannotated: " <> show x
+ann = \case
+  Ann _e t -> t
+  x -> error $ "unannotated: " <> show x
