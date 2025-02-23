@@ -48,33 +48,62 @@ kProg v = evalState mempty do
   kExp v (pure . Halt)
 
 
+-- η-expansion
+expand :: K es => (Val -> Eff es Tm) -> Ty -> (Val -> Eff es Tm) -> Eff es Tm
+expand k t k' = do
+  c <- fresh
+  kk <- k $ Var c t
+  x <- fresh
+  LetRec (M.fromList [(x, Abs [] [(c, t)] kk)]) <$> k' (Var x $ TFix [] [t])
+
+
+kAbs :: K es => F.Tm -> Eff es Val
+kAbs = \case
+  F.Abs x1 t1 t2 e `F.Ann` _ -> do
+    t1' <- kTy t1
+    t2' <- kCont t2
+    x1' <- freshen x1
+    c <- fresh
+    Abs [] [(x1', t1'), (c, t2')] <$> kExp e \k' ->
+      pure $ App (Var c t2') [] [k']
+  F.AbsT a e `F.Ann` _ -> do
+    a' <- freshen a
+    t' <- kCont $ F.ann e
+    c <- fresh
+    Abs [a'] [(c, t')] <$> kExp e \k' -> pure $ App (Var c t') [] [k']
+  e -> error $ "kAbs: " <> show e
+
+
 kExp :: K es => F.Tm -> (Val -> Eff es Tm) -> Eff es Tm
 kExp (u `F.Ann` t) k = case u of
   F.Var x -> do
     x' <- freshen x
     k . Var x' =<< kTy t
   F.IntLit v -> k $ IntLit v
-  F.Fix x x1 t1 t2 e -> do
-    x' <- if x == "" then pure Nothing else Just <$> freshen x
-    x1' <- freshen x1
-    c <- fresh
-    t1' <- kTy t1
-    t2' <- kCont t2
-    e' <- kExp e \k' -> pure $ App (Var c t2') [] [k']
-    k $ Fix x' [] [(x1', t1'), (c, t2')] e'
+  F.LetRec xs e -> do
+    xs' <-
+      M.fromList
+        <$> traverse (\(x, (_t, e1)) -> (,) <$> freshen x <*> kAbs e1) (M.toList xs)
+    LetRec xs' <$> kExp e k
+  F.Abs{} -> do
+    x <- fresh
+    t' <- kTy t
+    e' <- kAbs (u `F.Ann` t)
+    LetRec (M.fromList [(x, e')]) <$> k (Var x t')
   v1 `F.App` v2 -> kExp v1 \x1 -> kExp v2 \x2 -> do
-    k' <- unEta k =<< kTy t
-    pure $ App x1 [] [x2, k']
-  a `F.AbsT` v -> do
-    a' <- freshen a
-    c <- fresh
-    vt <- kCont (F.ann v)
-    v' <- kExp v $ \k' -> pure $ App (Var c vt) [] [k']
-    k $ Fix Nothing [a'] [(c, vt)] v'
+    t' <- kTy t
+    expand k t' \k' ->
+      pure $ App x1 [] [x2, k']
+  F.AbsT _a _v -> do
+    x <- fresh
+    t' <- kTy t
+    e' <- kAbs (u `F.Ann` t)
+    LetRec (M.fromList [(x, e')]) <$> k (Var x t')
   v `F.AppT` s -> do
-    k' <- unEta k =<< kTy t
+    t' <- kTy t
     s' <- kTy s
-    kExp v \x -> pure $ App x [s'] [k']
+    expand k t' \k' ->
+      kExp v \x -> pure $ App x [s'] [k']
   F.Tuple vs ->
     foldr
       (\v k' vs' -> kExp v \x -> k' (x : vs'))
@@ -96,10 +125,3 @@ kExp (u `F.Ann` t) k = case u of
       pure $ If0 x e2' e3'
   _ -> error ""
 kExp x _ = error $ "unannotated: " <> show x
-
-
-unEta :: K es => (Val -> Eff es Tm) -> Ty -> Eff es Val
-unEta k t = do
-  k' <- fresh
-  un <- k $ Var k' t
-  pure $ Fix Nothing [] [(k', t)] un

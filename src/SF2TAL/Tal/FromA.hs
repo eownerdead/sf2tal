@@ -50,7 +50,7 @@ type Tal es =
   )
 
 
-tProg :: Uniq :> es => M.Prog -> Eff es (Prog, THeap)
+tProg :: Uniq :> es => M.Tm -> Eff es (Prog, THeap)
 tProg p = do
   ((is, ths), hs) <- runReader TalEnv{vals = mempty, tCtx = mempty, tRegFile = mempty} $
     runLabeled @"heaps" runWriter $ runLabeled @"tHeap" runWriter do
@@ -58,20 +58,22 @@ tProg p = do
   pure (Prog hs mempty is, ths)
 
 
-tProg' :: Tal es => M.Prog -> Eff es Seq
-tProg' (M.LetRec xs e) = do
-  vs <- traverse (const fresh) xs
-  local (vals .~ fmap Label vs) do
-    hs' <- traverse tHVal $ M.mapKeys (vs M.!) xs
-    is <- tExp e
-    labeled @"heaps" $ tell hs'
-    labeled @"tHeap" $ tell $ fmap (tTy . M.ty) $ M.mapKeys (vs M.!) xs
-    pure is
+tProg' :: Tal es => M.Tm -> Eff es Seq
+tProg' = \case
+  M.LetRec xs e -> do
+    vs <- traverse (const fresh) xs
+    local (vals .~ fmap Label vs) do
+      hs' <- traverse tHVal $ M.mapKeys (vs M.!) xs
+      is <- tExp e
+      labeled @"heaps" $ tell hs'
+      labeled @"tHeap" $ tell $ fmap (tTy . M.ty) $ M.mapKeys (vs M.!) xs
+      pure is
+  _ -> error "Top-level is not LetRec"
 
 
 tHVal :: Tal es => M.Val -> Eff es HVal
 tHVal = \case
-  M.Fix Nothing as xs e -> do
+  M.Abs as xs e -> do
     let trs = M.fromList [(A i, tTy $ x ^. _2) | i <- [1 ..] | x <- xs]
     let vs' = M.fromList [(x ^. _1, Reg $ A i) | i <- [1 ..] | x <- xs]
     is <-
@@ -171,6 +173,7 @@ tExp = \case
       | otherwise ->
           error $
             "Update: t is not TTuple, but " <> T.unpack (prettyText $ M.ty v1)
+  M.LetRec _xs _e -> error "LetRec in non top-level"
   M.App v as vs -> do
     unless (null as) $ error "not (null as)"
     r0 <- R <$> fresh

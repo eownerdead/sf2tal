@@ -158,7 +158,6 @@ tyWVal = \case
   Junk t -> pure t
   AppT w t ->
     tyWVal w >>= \case
-      TCode [] trs -> pure $ TCode [] trs
       TCode (a : as) trs -> pure $ TCode as $ tsubst a t trs
       t' -> err ["Type applying non-code value: " <> pp t', pp $ AppT w t]
   Pack _t w t' -> do
@@ -172,7 +171,6 @@ tyVal = \case
   Reg r -> tyR r
   AppT v t ->
     tyVal v >>= \case
-      TCode [] trs -> pure $ TCode [] trs
       TCode (a : as) trs -> pure $ TCode as $ tsubst a t trs
       t' -> err ["Type applying non-code value: " <> pp t', pp $ AppT v t]
   Pack _t v t' -> do

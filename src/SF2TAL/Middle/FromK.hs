@@ -10,6 +10,7 @@ import Effectful
 import Effectful.Writer.Static.Local
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
+import SF2TAL.PP
 import SF2TAL.Uniq
 
 
@@ -32,7 +33,7 @@ cTy = \case
   t@TExists{} -> error $ "not in K: " <> show t
 
 
-cProg :: Uniq :> es => Tm -> Eff es Prog
+cProg :: Uniq :> es => Tm -> Eff es Tm
 cProg p = do
   (e, xs) <- runWriter do cExp p
   pure $ LetRec xs e
@@ -41,6 +42,33 @@ cProg p = do
 cExp :: C es => Tm -> Eff es Tm
 cExp = \case
   Let d e -> Let <$> cDec d <*> cExp e
+  LetRec xs e1 -> do
+    let fvs = M.toList $ fv $ LetRec xs e1
+    vEnv <- Tuple <$> mapM (\(y, s) -> Var y <$> cTy s) fvs
+    tEnv <- tTuple <$> traverse (cTy . snd) fvs
+    zEnv <- fresh
+    xs' <- forM xs \case
+      v@(Abs as xs' e) -> do
+        e' <- cExp e
+        ts' <- traverse (cTy . snd) xs'
+        let bs = S.toList $ ftv v
+        let vCode k = Abs (bs <> as) ((zEnv, tEnv) : zip (fmap fst xs') ts') do
+              foldr
+                (\(i, y) -> Let (At y i $ Var zEnv tEnv))
+                (k e')
+                (zip [1 ..] $ fmap fst fvs)
+        let tRawCode = TFix (bs <> as) (tEnv : ts')
+        zCode <- fresh
+        pack <-
+          Pack
+            tEnv
+            (Tuple [Var zCode tRawCode `appT` fmap TVar bs, vEnv])
+            <$> cTy (ty v)
+        pure (zCode, vCode, pack)
+      v -> errorK $ "value of LetRec is not Abs" <> docStr (pp v)
+    let pack e = M.foldrWithKey (\x (_, _, v) -> Let (Bind x v)) e xs'
+    forM_ xs' \(zCode, vCode, _) -> tell $ M.singleton zCode (vCode pack)
+    pack <$> cExp e1
   App v ts vs -> do
     z <- fresh
     v' <- cVal v
@@ -78,47 +106,7 @@ cVal :: C es => Val -> Eff es Val
 cVal = \case
   Var x t -> Var x <$> cTy t
   IntLit i -> pure $ IntLit i
+  e@Abs{} -> error $ "Abs: " <> docStr (pp e)
   Tuple vs -> Tuple <$> traverse cVal vs
-  v@(Fix x as xs e) -> do
-    ts' <- traverse (cTy . snd) xs
-    zCode <- fresh
-    zEnv <- fresh
-    let ys = fv v
-    let bs = S.toList $ ftv v
-    tEnv <- cTy $ tTuple $ M.elems ys
-    let tRawCode = TFix (bs <> as) (tEnv : ts')
-    e' <- cExp e
-    t' <- cTy $ ty v
-    let pack =
-          Pack
-            tEnv
-            do
-              Tuple
-                [ Var zCode tRawCode `appT` fmap TVar bs
-                , Var zEnv tEnv
-                ]
-            t'
-    let vCode =
-          Fix
-            Nothing
-            (bs <> as)
-            ((zEnv, tEnv) : zip (fmap fst xs) ts')
-            do
-              maybe id (\x' -> Let $ Bind x' pack) x $
-                foldr
-                  do \(i, y) -> Let (At y i (Var zEnv tEnv))
-                  e'
-                  (zip [1 ..] (M.keys ys))
-    vEnv <- Tuple <$> mapM (\(y, s) -> Var y <$> cTy s) (M.toList ys)
-    tell $ M.singleton zCode vCode
-    pure $
-      Pack
-        tEnv
-        ( Tuple
-            [ Var zCode tRawCode `appT` fmap TVar bs
-            , vEnv
-            ]
-        )
-        t'
   e@AppT{} -> errorK e
   e@Pack{} -> errorK e

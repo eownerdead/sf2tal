@@ -1,11 +1,11 @@
 module SF2TAL.Middle.Tc
-  ( ckProg
-  , ckTm
+  ( ckTm
   )
 where
 
 import Control.Exception.Safe
 import Control.Monad
+import Data.Foldable
 import Data.Map qualified as M
 import Effectful
 import Effectful.Reader.Static
@@ -49,16 +49,6 @@ lookupVar x = do
     | otherwise -> err ["Unbounded variable" <+> pp (int2Text x)]
 
 
-ckProg :: Prog -> Eff es ()
-ckProg p = runReader mempty do ckProg' p
-
-
-ckProg' :: Tc ann es => Prog -> Eff es ()
-ckProg' (LetRec xs e) = local (fmap ty xs <>) do
-  mapM_ ckVal xs
-  ckTm' e
-
-
 ckTm :: Tm -> Eff es ()
 ckTm e = runReader mempty do ckTm' e
 
@@ -68,13 +58,17 @@ ckTm' = \case
   Let d e -> do
     ckDecl d $ ckTm' e
     pure ()
+  LetRec xs e -> do
+    local (fmap ty xs <>) do
+      traverse_ ckVal xs
+      ckTm' e
   e@(App v bs vs) ->
     ckVal v >>= \case
       TFix as ts ->
         forM_ (zip ts vs) \(t, v') -> do
           let t' = foldr (uncurry tsubst) t (zip as bs)
           tv' <- ckVal v'
-          when (tv' /= t') do
+          when (t' /= tv') do
             err
               [ "Type of a argument does not match:" <+> pp v'
               , "expected:" <+> pp t'
@@ -143,12 +137,11 @@ ckVal v = do
         then pure t
         else err ["Type of annotation does not match:" <+> pp t', pp v]
     IntLit _ -> pure TInt
-    Fix x as xs e ->
+    Abs as xs e ->
       let t = TFix as (fmap (^. _2) xs)
       in local (M.fromList xs <>) do
-          local (maybe id (\x' -> at x' ?~ t) x) do
-            _ <- ckTm' e
-            pure t
+          _ <- ckTm' e
+          pure t
     Tuple vs -> TTuple . fmap (,True) <$> mapM ckVal vs
     v' `AppT` t ->
       ckVal v' >>= \case

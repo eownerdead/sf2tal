@@ -18,12 +18,10 @@ module SF2TAL.Middle.Middle
   , appT
   , Decl (..)
   , Tm (..)
-  , Prog (..)
   )
 where
 
 import Control.Exception (assert)
-import Data.Foldable
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Effectful
@@ -162,8 +160,8 @@ data Val where
   Var :: Name -> Ty -> Val
   -- | K, C, H, A: i
   IntLit :: Int -> Val
-  -- | K, C, H, A: fix x(x1: t1, ..., xn: tn). e
-  Fix :: Maybe Name -> [TName] -> [(Name, Ty)] -> Tm -> Val
+  -- | K, C, H, A: [as](x1: t1, ..., xn: tn). e
+  Abs :: [TName] -> [(Name, Ty)] -> Tm -> Val
   -- | K, C, H, A: <vs>
   Tuple :: [Val] -> Val
   -- | C, H, A: v[t]
@@ -179,13 +177,10 @@ instance PP.Pretty Val where
   pretty = \case
     Var x t -> pp x <+> ":" <+> pp t
     IntLit i -> pp i
-    Fix x as xs e ->
+    Abs as xs e ->
       PP.group $
-        do
-          case x of
-            Just x' -> "fix" <+> pp x'
-            Nothing -> "fun"
-          <> do if null as then mempty else brackets (fmap pp as)
+        "\\"
+          <> (if null as then mempty else brackets (fmap pp as))
           <> parens (fmap (\(k, v) -> pp k <+> ":" <+> pp v) xs)
           <> "."
           <> nest (PP.line <> pp e)
@@ -203,7 +198,7 @@ instance SubTys Val where
   subTys f = \case
     Var x t -> Var x <$> f t
     IntLit i -> pure $ IntLit i
-    Fix x as xs e -> Fix x as <$> traverse (_2 f) xs <*> subTys f e
+    Abs as xs e -> Abs as <$> traverse (_2 f) xs <*> subTys f e
     Tuple vs -> Tuple <$> traverse (subTys f) vs
     v `AppT` t -> AppT <$> subTys f v <*> f t
     Pack t1 v t2 -> Pack <$> f t1 <*> subTys f v <*> f t2
@@ -217,7 +212,7 @@ instance SubVals Val where
   subVals f = \case
     Var x t -> pure $ Var x t
     IntLit i -> pure $ IntLit i
-    Fix x as xs e -> Fix x as xs <$> subVals f e
+    Abs as xs e -> Abs as xs <$> subVals f e
     Tuple vs -> Tuple <$> traverse f vs
     v `AppT` t -> (`AppT` t) <$> f v
     Pack t1 v t2 -> Pack t1 <$> f v <*> pure t2
@@ -227,7 +222,7 @@ instance HasTy Val where
   ty = \case
     Var _ t -> t
     IntLit _ -> TInt
-    Fix _x as xs _e -> TFix as (fmap (^. _2) xs)
+    Abs as xs _e -> TFix as (fmap (^. _2) xs)
     Tuple vs -> TTuple $ fmap ((,True) . ty) vs
     v `AppT` t ->
       if
@@ -240,8 +235,8 @@ instance Fv Val where
   fv = \case
     Var x t -> M.singleton x t
     IntLit _ -> mempty
-    Fix x _as xs e ->
-      foldr (\y -> at y .~ Nothing) (fv e) (toList x <> (xs <&> (^. _1)))
+    Abs _as xs e ->
+      foldr (\y -> at y .~ Nothing) (fv e) (xs <&> (^. _1))
     Tuple es -> foldMap fv es
     e `AppT` _t' -> fv e
     Pack _a v _t2 -> fv v
@@ -251,7 +246,7 @@ instance Ftv Val where
   ftv = \case
     Var _x _t -> mempty
     IntLit _i -> mempty
-    Fix _x as xs e ->
+    Abs as xs e ->
       (foldMap (ftv . snd) xs <> ftv e) `S.difference` S.fromList as
     Tuple es -> foldMap ftv es
     e `AppT` t -> ftv e <> ftv t
@@ -270,19 +265,19 @@ subst sub =
       | Just v' <- M.lookup x sub ->
           assert (t == ty v') do pure v'
       | otherwise -> pure $ Var x t
-    v@(Fix x as xs e) -> do
-      x' <- traverse (const fresh) x
-      let sub1 = M.fromList $ toList $ liftA2 (\y y' -> (y, Var y' (ty v))) x x'
+    Abs as xs e -> do
       xs' <- traverse (const fresh) xs
       let xs'' = zip xs' (fmap snd xs)
-      let sub2 = M.fromList $ zip (fmap fst xs) $ fmap (uncurry Var) xs''
-      Fix x' as xs'' <$> subst (sub <> sub1 <> sub2) e
+      let sub' = M.fromList $ zip (fmap fst xs) $ fmap (uncurry Var) xs''
+      Abs as xs'' <$> subst (sub <> sub') e
     v -> subst sub v
 
 
 data Tm where
   -- | K, C, H, A: let d in e
   Let :: Decl -> Tm -> Tm
+  -- | K, C, H, A: letrec x1 = v1 and ... in e
+  LetRec :: M.Map Name Val -> Tm -> Tm
   -- | K, C, H, A: v[ts](vs)
   App :: Val -> [Ty] -> [Val] -> Tm
   -- | K, C, H, A: if0(v, e1, e2)
@@ -297,6 +292,7 @@ deriving stock instance Show Tm
 instance SubTys Tm where
   subTys f = \case
     Let d e -> Let <$> subTys f d <*> subTys f e
+    LetRec xs e -> LetRec <$> traverse (subTys f) xs <*> subTys f e
     App v ts vs -> App <$> subTys f v <*> traverse f ts <*> traverse (subTys f) vs
     If0 v e1 e2 -> If0 <$> subTys f v <*> subTys f e1 <*> subTys f e2
     Halt v -> Halt <$> subTys f v
@@ -305,6 +301,7 @@ instance SubTys Tm where
 instance SubVals Tm where
   subVals f = \case
     Let d e -> Let <$> subVals f d <*> subVals f e
+    LetRec xs e -> LetRec <$> traverse f xs <*> subVals f e
     App v ts vs -> App <$> f v <*> pure ts <*> traverse f vs
     If0 v e1 e2 -> If0 <$> f v <*> subVals f e1 <*> subVals f e2
     Halt v -> Halt <$> f v
@@ -313,6 +310,11 @@ instance SubVals Tm where
 instance PP.Pretty Tm where
   pretty = \case
     Let e1 e2 -> PP.vsep ["let" <+> pp e1 <+> "in", pp e2]
+    LetRec xs e ->
+      PP.vsep
+        [ nest $ PP.vsep $ "letrec" : fmap (\(x, v) -> ppDecl (pp x) (pp v)) (M.toList xs)
+        , nest $ PP.vsep ["in", pp e]
+        ]
     App e1 ts xs ->
       parens [pp e1]
         <> do if null ts then mempty else brackets (fmap pp ts)
@@ -327,6 +329,7 @@ instance Fv Tm where
     Let (At x _i v) e -> fv v <> fv e & at x .~ Nothing
     Let (Arith x _p v1 v2) e -> fv v1 <> fv v2 <> fv e & at x .~ Nothing
     Let _d _e -> error "No need"
+    LetRec xs e -> (foldMap fv xs <> fv e) M.\\ xs
     App v _ts vs -> fv v <> foldMap fv vs
     If0 v e1 e2 -> fv v <> fv e1 <> fv e2
     Halt v -> fv v
@@ -399,21 +402,3 @@ ppDecl x v = nest $ PP.sep [x <+> PP.equals, v]
 
 instance Ftv Decl where
   ftv e = S.fromList $ e ^.. subTys . folding ftv
-
-
--- | H, A: p
-data Prog where
-  LetRec :: M.Map Name Val -> Tm -> Prog
-
-
-deriving stock instance Show Prog
-
-
-instance PP.Pretty Prog where
-  pretty (LetRec xs e) =
-    PP.vsep
-      [ nest $
-          PP.vsep $
-            "letrec" : fmap (\(k, v) -> ppDecl (pp k) (pp v)) (M.toList xs)
-      , nest $ PP.vsep ["in", pp e]
-      ]

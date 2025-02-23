@@ -52,10 +52,18 @@ ty' = \case
       Just t -> pure $ Var x `Ann` t
       Nothing -> err $ "Unbound variable " <> pp x
   IntLit i -> pure $ Ann (IntLit i) TInt
-  Fix x x1 t1 t2 e -> do
-    e' <- extendEnv x (t1 `TFun` t2) do extendEnv x1 t1 do ty' e
+  LetRec xs e ->
+    local (fmap fst xs <>) do
+      xs' <- forM xs \(t, e') -> do
+        e'' <- ty' e'
+        when (ann e'' /= t) do err "LetRec: Type not match"
+        pure (t, e'')
+      e' <- ty' e
+      pure $ LetRec xs' e' `Ann` ann e'
+  Abs x1 t1 t2 e -> do
+    e' <- extendEnv x1 t1 do ty' e
     when (ann e' /= t2) do err "Fix: e is not t2"
-    pure $ Fix x x1 t1 t2 e' `Ann` (t1 `TFun` t2)
+    pure $ Abs x1 t1 t2 e' `Ann` (t1 `TFun` t2)
   e1 `App` e2 -> do
     e1' <- ty' e1
     e2' <- ty' e2

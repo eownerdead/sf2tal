@@ -26,10 +26,10 @@ compile e = do
   k' <- iter 25 k
 
   c <- M.cProg k'
-  M.ckProg c
+  M.ckTm c
 
   a <- M.aProg c
-  M.ckProg a
+  M.ckTm a
 
   (tal, ths) <- Tal.tProg a
   Tal.ckProg ths tal

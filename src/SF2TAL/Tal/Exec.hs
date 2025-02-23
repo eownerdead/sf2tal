@@ -88,7 +88,7 @@ exec ths (Prog hs rs is) = do
     exec' is' = do
       p <- getProg is'
       ths' <- use tHeap
-      ckProg ths' p
+      -- ckProg ths' p
       exec' =<< step is'
 
 

@@ -14,6 +14,7 @@ module SF2TAL.F.F
   )
 where
 
+import Data.Map qualified as M
 import Data.Text qualified as T
 import Prettyprinter
 
@@ -79,8 +80,10 @@ data Tm where
   Var :: Name -> Tm
   -- | i
   IntLit :: Int -> Tm
-  -- | fix x(x1: t1): t2. e
-  Fix :: Name -> Name -> Ty -> Ty -> Tm -> Tm
+  -- | letrec x1 : t = e1 and ... in e end
+  LetRec :: M.Map Name (Ty, Tm) -> Tm -> Tm
+  -- | \(x1: t1): t2. e
+  Abs :: Name -> Ty -> Ty -> Tm -> Tm
   -- | e1 e2
   App :: Tm -> Tm -> Tm
   -- | prod a. e

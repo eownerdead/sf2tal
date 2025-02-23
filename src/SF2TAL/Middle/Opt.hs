@@ -18,7 +18,7 @@ oUnion :: Occurs -> Occurs -> Occurs
 oUnion = M.unionWith (+)
 
 
-oUnions :: [Occurs] -> Occurs
+oUnions :: Foldable f => f Occurs -> Occurs
 oUnions = foldr oUnion mempty
 
 
@@ -30,9 +30,8 @@ occurs e =
     ]
 
 
-occursOf :: SubVals a => Name -> a -> Int
-occursOf x e = M.findWithDefault x 0 (occurs e)
-
+-- occursOf :: SubVals a => Name -> a -> Int
+-- occursOf x e = M.findWithDefault x 0 (occurs e)
 
 class Size a where
   size :: a -> Int
@@ -42,7 +41,7 @@ instance Size Val where
   size = \case
     Var _x _t -> 0
     IntLit _ -> 0
-    Fix _x _as xs e -> 1 + length xs + size e
+    Abs _as xs e -> 1 + length xs + size e
     Tuple vs -> 1 + sum (fmap ((1 +) . size) vs)
     AppT v _t -> size v
     _ -> error "No need"
@@ -54,6 +53,7 @@ instance Size Tm where
     Let (At _x _i v) e -> 1 + size v + size e
     Let (Arith _x _p v1 v2) e -> 1 + size v1 + size v2 + size e
     Let (Unpack _a _x v) e -> 1 + size v + size e
+    LetRec xs e -> sum (fmap size xs) + size e
     App v _ts vs -> 1 + size v + sum (fmap size vs)
     If0 v e1 e2 -> 1 + size v + size e1 + size e2
     Halt v -> 1 + size v
@@ -70,14 +70,6 @@ simp = tm
 
 tm :: Uniq :> es => Tm -> Eff es Tm
 tm = \case
-  Let (Bind x v) e
-    | n == 0 -> tm e
-    | n == 1 || sz * n < threshold -> do
-        v' <- val v
-        tm =<< subst (M.singleton x v') e
-    where
-      n = occursOf x e
-      sz = size v
   Let (Arith x p (IntLit n) (IntLit m)) e -> do
     e' <- subst (M.singleton x (IntLit n')) e
     tm e'
@@ -87,10 +79,11 @@ tm = \case
         Mul -> n * m
         Sub -> n - m
   Let d e -> Let <$> subVals val d <*> tm e
+  LetRec xs e -> LetRec <$> traverse val xs <*> tm e
   App v ts vs -> do
     vs' <- traverse val vs
     val v >>= \case
-      Fix Nothing as xs e ->
+      Abs as xs e ->
         let e' = foldr (uncurry tsubst) e (zip as ts)
         in pure $ foldr (\(x, v') -> Let (Bind x v')) e' (zip (fmap fst xs) vs')
       v' -> pure $ App v' ts vs'
@@ -105,9 +98,5 @@ tm = \case
 
 val :: Uniq :> es => Val -> Eff es Val
 val = subVals \case
-  Fix x as xs e
-    | Just x' <- x
-    , occursOf x' e /= 0 ->
-        Fix x as xs <$> tm e
-    | otherwise -> Fix Nothing as xs <$> tm e
+  Abs as xs e -> Abs as xs <$> tm e
   v -> val v

@@ -33,14 +33,16 @@ aTy = \case
   TExists a t -> TExists a $ aTy t
 
 
-aProg :: Uniq :> es => Prog -> Eff es Prog
-aProg (LetRec xs e) = LetRec <$> traverse aHval xs <*> aExp e
+aProg :: Uniq :> es => Tm -> Eff es Tm
+aProg = \case
+  LetRec xs e -> LetRec <$> traverse aHval xs <*> aExp e
+  _ -> errorC ("Top-level is not LetRec" :: String)
 
 
 aHval :: Uniq :> es => Val -> Eff es Val
 aHval = \case
-  Fix Nothing as xs e ->
-    Fix Nothing as (xs <&> _2 %~ aTy) <$> aExp e
+  Abs as xs e ->
+    Abs as (xs <&> _2 %~ aTy) <$> aExp e
   v -> error $ "unannotated: " <> show v
 
 
@@ -51,6 +53,7 @@ aExp = \case
   e@App{} -> errorC e
   If0 v e1 e2 -> let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
   Halt v -> let' $ Halt <$> aVal v
+  _ -> errorC ("LetRec in non top-level" :: String)
 
 
 aDec :: A es => Decl -> Eff es ()
@@ -98,4 +101,4 @@ aVal = \case
           | i <- [1 ..]
           ]
     pure $ Var (last (y0 : ys)) (aTy $ ty v)
-  v@Fix{} -> errorC v
+  v@Abs{} -> errorC v
