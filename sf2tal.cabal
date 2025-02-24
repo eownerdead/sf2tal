@@ -23,6 +23,7 @@ common common
     NoFieldSelectors,
     OverloadedStrings,
     ParallelListComp,
+    StrictData,
     TemplateHaskell,
     TypeFamilies,
   ghc-options:
