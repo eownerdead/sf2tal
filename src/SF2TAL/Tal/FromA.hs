@@ -11,6 +11,7 @@ import Effectful.Reader.Static.Microlens
 import Effectful.Writer.Static.Local
 import Lens.Micro.Platform hiding (preview, view)
 import SF2TAL.Middle qualified as M
+import SF2TAL.PP
 import SF2TAL.Tal.Tal
 import SF2TAL.Uniq
 import SF2TAL.Utils

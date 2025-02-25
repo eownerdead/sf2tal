@@ -1,13 +1,8 @@
 module Main (main) where
 
-import Data.Text qualified as T
-import Effectful
-import Effectful.Error.Static
+import SF2TAL
 import SF2TAL.F
-import SF2TAL.Middle qualified as M
-import SF2TAL.Middle.Opt qualified as M
 import SF2TAL.Tal qualified as Tal
-import SF2TAL.Uniq
 import Test.Hspec
 
 
@@ -50,40 +45,12 @@ currying =
 {- FOURMOLU_ENABLE -}
 
 
-iter :: (Uniq :> es, Error T.Text :> es) => Int -> M.Tm -> Eff es M.Tm
-iter n k
-  | n == 0 = pure k
-  | otherwise = do
-      k' <- M.simp k
-      M.ckTm k'
-      iter (n - 1) k'
-
-
-run :: Tm -> Either T.Text Tal.Val
-run e = runPureEff $ runUniq $ runErrorNoCallStack do
-  e' <- ty e
-  k <- M.kProg e'
-  M.ckTm k
-
-  k' <- iter 25 k
-
-  c <- M.cProg k'
-  M.ckProg c
-
-  a <- M.aProg c
-  M.ckProg a
-
-  (tal, ths) <- Tal.tProg a
-  Tal.ckProg ths tal
-  Tal.exec ths tal
-
-
 main :: IO ()
 main = hspec $ do
-  it "factorial" $ run factorial `shouldBe` Right (Tal.IntLit 720)
+  it "factorial" $ run factorial `shouldBe` Tal.IntLit 720
   it "fibonacci" $
-    run (fibonacci #$ IntLit 10) `shouldBe` Right (Tal.IntLit 55)
+    run (fibonacci #$ IntLit 10) `shouldBe` Tal.IntLit 55
   it "twice fibbonacci" $
     run (twice `AppT` TInt #$ fibonacci #$ IntLit 7)
-      `shouldBe` Right (Tal.IntLit 233)
-  it "currying" $ run currying `shouldBe` Right (Tal.IntLit 16)
+      `shouldBe` Tal.IntLit 233
+  it "currying" $ run currying `shouldBe` Tal.IntLit 16

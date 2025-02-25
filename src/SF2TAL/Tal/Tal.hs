@@ -6,7 +6,6 @@ module SF2TAL.Tal.Tal
   , Ty (..)
   , THeap
   , TRegFile
-  , prettyMap
   , R (..)
   , Val (..)
   , HVal (..)
@@ -22,11 +21,10 @@ module SF2TAL.Tal.Tal
 where
 
 import Data.Map qualified as M
-import Data.Text qualified as T
 import Lens.Micro.Platform
-import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim (..))
+import SF2TAL.PP
 import SF2TAL.Utils
 
 
@@ -85,25 +83,11 @@ instance IsSubtyOf Ty where
 
 instance PP.Pretty Ty where
   pretty = \case
-    TVar a -> pretty a
-    TInt -> pretty ("int" :: T.Text)
-    TCode as tRegFile ->
-      pretty ("forall" :: T.Text)
-        <> brackets (fmap pretty as)
-        <> PP.dot
-        <+> prettyMap PP.colon tRegFile
-    TTuple ts ->
-      angles $
-        fmap
-          do
-            \(t, i) ->
-              (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
-          ts
-    TExists a t ->
-      pretty ("exists" :: T.Text)
-        <+> pretty a
-        <> PP.dot
-        <+> pretty t
+    TVar a -> pp a
+    TInt -> "int"
+    TCode as trf -> "forall" <> brackets (fmap pp as) <> "." <+> ppMap ":" trf
+    TTuple ts -> angles $ fmap (\(t, i) -> (if i then "" else "*") <> pp t) ts
+    TExists a t -> "exists" <+> pp a <> "." <+> pp t
 
 
 instance TSubst Ty where
@@ -112,7 +96,7 @@ instance TSubst Ty where
       | a == b -> t
       | otherwise -> TVar b
     TInt -> TInt
-    TCode as tRegFile -> TCode as $ tsubst a t tRegFile
+    TCode as trf -> TCode as $ tsubst a t trf
     TTuple ts -> TTuple (ts <&> _1 %~ tsubst a t)
     TExists b s -> TExists b $ tsubst a t s
 
@@ -127,12 +111,6 @@ type TRegFile = M.Map R Ty
 
 instance IsSubtyOf TRegFile where
   isSubtyOf = flip (M.isSubmapOfBy (flip isSubtyOf))
-
-
-prettyMap ::
-  (PP.Pretty b, PP.Pretty c) => PP.Doc a -> M.Map b c -> PP.Doc a
-prettyMap s xs =
-  braces $ [PP.hsep [pretty k, s, pretty v] | (k, v) <- M.toList xs]
 
 
 instance TSubst TRegFile where
@@ -158,8 +136,8 @@ deriving stock instance Ord R
 
 instance PP.Pretty R where
   pretty = \case
-    A a -> pretty $ "a" <> int2Text a
-    R r -> pretty $ "r" <> int2Text r
+    A a -> pp $ "a" <> int2Text a
+    R r -> pp $ "r" <> int2Text r
 
 
 -- | word values or small values
@@ -186,16 +164,12 @@ deriving stock instance Eq Val
 
 instance PP.Pretty Val where
   pretty = \case
-    Label l -> pretty l
-    IntLit i -> pretty i
-    Junk t -> pretty ("?" :: T.Text) <> pretty t
-    Reg r -> pretty r
-    AppT w t -> pretty w <> brackets [pretty t]
-    Pack t v t' ->
-      pretty ("pack" :: T.Text)
-        <> brackets [pretty t, pretty v]
-        <+> pretty ("as" :: T.Text)
-        <+> pretty t'
+    Label l -> pp l
+    IntLit i -> pp i
+    Junk t -> "?" <> pp t
+    Reg r -> pp r
+    AppT w t -> pp w <> brackets [pp t]
+    Pack t v t' -> "pack" <> brackets [pp t, pp v] <+> "as" <+> pp t'
 
 
 instance TSubst Val where
@@ -219,14 +193,12 @@ deriving stock instance Show HVal
 
 instance PP.Pretty HVal where
   pretty = \case
-    Tuple vs -> angles $ fmap pretty vs
+    Tuple vs -> angles $ fmap pp vs
     Code as tRegFile is ->
-      PP.nest 2 $
+      nest $
         PP.vsep
-          [ pretty ("code" :: T.Text)
-              <> brackets (fmap pretty as)
-              <> prettyMap PP.equals tRegFile
-          , pretty is
+          [ "code" <> brackets (fmap pp as) <> ppMap "=" tRegFile
+          , pp is
           ]
 
 
@@ -259,33 +231,25 @@ data Inst where
 deriving stock instance Show Inst
 
 
-prettyInst :: T.Text -> [PP.Doc a] -> PP.Doc a
-prettyInst op rs = PP.hsep $ pretty op : PP.punctuate PP.comma rs
+ppInst :: PP.Doc a -> [PP.Doc a] -> PP.Doc a
+ppInst op rs = PP.hsep $ op : PP.punctuate "," rs
 
 
 instance PP.Pretty Inst where
   pretty = \case
-    Arith p rd rs v -> prettyInst p' [pretty rd, pretty rs, pretty v]
+    Arith p rd rs v -> ppInst p' [pp rd, pp rs, pp v]
       where
         p' = case p of
           Add -> "add"
           Mul -> "mul"
           Sub -> "sub"
-    Bnz r v -> prettyInst "bnz" [pretty r, pretty v]
-    Ld rd rs i ->
-      prettyInst "ld" [pretty rd, pretty rs <> brackets [pretty i]]
-    Malloc rd ts ->
-      prettyInst "malloc" [pretty rd <> brackets (fmap pretty ts)]
-    Mov rd v -> prettyInst "mov" [pretty rd, pretty v]
-    St rd i rs ->
-      prettyInst "st" [pretty rd <> brackets [pretty i], pretty rs]
+    Bnz r v -> ppInst "bnz" [pp r, pp v]
+    Ld rd rs i -> ppInst "ld" [pp rd, pp rs <> brackets [pp i]]
+    Malloc rd ts -> ppInst "malloc" [pp rd <> brackets (fmap pp ts)]
+    Mov rd v -> ppInst "mov" [pp rd, pp v]
+    St rd i rs -> ppInst "st" [pp rd <> brackets [pp i], pp rs]
     Unpack a rd v ->
-      PP.hsep $
-        PP.punctuate
-          PP.comma
-          [ pretty ("unpack" :: T.Text) <> brackets [pretty a, pretty rd]
-          , pretty v
-          ]
+      PP.hsep $ PP.punctuate "," ["unpack" <> brackets [pp a, pp rd], pp v]
 
 
 instance TSubst Inst where
@@ -315,10 +279,9 @@ deriving stock instance Show Seq
 
 instance PP.Pretty Seq where
   pretty = \case
-    Seq i is -> PP.vsep [pretty i, pretty is]
-    Jmp v -> prettyInst "jmp" [pretty v]
-    Halt t ->
-      PP.hsep $ PP.punctuate PP.comma ["halt" <> brackets [pretty t]]
+    Seq i is -> PP.vsep [pp i, pp is]
+    Jmp v -> ppInst "jmp" [pp v]
+    Halt t -> PP.hsep $ PP.punctuate "," ["halt" <> brackets [pp t]]
 
 
 instance TSubst Seq where
@@ -344,7 +307,7 @@ makeFieldsId ''Prog
 instance PP.Pretty Prog where
   pretty p =
     parens
-      [ prettyMap PP.equals (p ^. heaps)
-      , prettyMap PP.equals (p ^. regFile)
-      , pretty (p ^. seqs)
+      [ ppMap "=" (p ^. heaps)
+      , ppMap "=" (p ^. regFile)
+      , pp (p ^. seqs)
       ]

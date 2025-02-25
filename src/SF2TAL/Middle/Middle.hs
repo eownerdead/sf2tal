@@ -26,14 +26,12 @@ import Control.Exception (assert)
 import Data.Foldable
 import Data.Map qualified as M
 import Data.Set qualified as S
-import Data.Text qualified as T
 import Effectful
 import Lens.Micro.Platform
-import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim)
+import SF2TAL.PP
 import SF2TAL.Uniq
-import SF2TAL.Utils
 
 
 type TName = Int
@@ -97,27 +95,25 @@ instance SubTys Ty where
 
 instance PP.Pretty Ty where
   pretty = \case
-    TVar x -> pretty x
-    TInt -> pretty ("int" :: T.Text)
+    TVar x -> pp x
+    TInt -> "int"
     TFix as xs
       | null as -> body
-      | otherwise -> PP.nest 2 $ PP.sep [quantifier, body]
+      | otherwise -> nest $ PP.sep [quantifier, body]
       where
         quantifier =
-          pretty ("forall" :: T.Text) <> brackets (fmap pretty as) <> PP.dot
-        body = parens (fmap pretty xs) <+> pretty ("-> void" :: T.Text)
+          "forall" <> brackets (fmap pp as) <> "."
+        body = parens (fmap pp xs) <+> "-> void"
     TTuple ts ->
       angles $
         fmap
-          do
-            \(t, i) ->
-              (if i then mempty else pretty ("*" :: T.Text)) <> pretty t
+          (\(t, i) -> (if i then mempty else "*") <> pp t)
           ts
     TExists a t ->
-      PP.nest 2 $
+      nest $
         PP.sep
-          [ pretty ("exists" :: T.Text) <+> pretty a <> PP.dot
-          , pretty t
+          [ "exists" <+> pp a <> PP.dot
+          , pp t
           ]
 
 
@@ -181,27 +177,25 @@ deriving stock instance Show Val
 
 instance PP.Pretty Val where
   pretty = \case
-    Var x t -> pretty x <+> pretty (":" :: T.Text) <+> pretty t
-    IntLit i -> pretty i
+    Var x t -> pp x <+> ":" <+> pp t
+    IntLit i -> pp i
     Fix x as xs e ->
       PP.group $
         do
           case x of
-            Just x' -> pretty ("fix " :: T.Text) <> pretty x'
-            Nothing -> pretty ("fun" :: T.Text)
-          <> do if null as then mempty else brackets (fmap pretty as)
-          <> parens (fmap (\(k, v) -> pretty k <+> PP.colon <+> pretty v) xs)
-          <> PP.dot
-          <> PP.nest 2 (PP.line <> pretty e)
-    Tuple vs -> angles $ fmap pretty vs
-    v `AppT` t -> parens [pretty v] <> brackets [pretty t]
+            Just x' -> "fix" <+> pp x'
+            Nothing -> "fun"
+          <> do if null as then mempty else brackets (fmap pp as)
+          <> parens (fmap (\(k, v) -> pp k <+> ":" <+> pp v) xs)
+          <> "."
+          <> nest (PP.line <> pp e)
+    Tuple vs -> angles $ fmap pp vs
+    v `AppT` t -> parens [pp v] <> brackets [pp t]
     Pack t1 v t2 ->
-      PP.nest 2 $
+      nest $
         PP.sep
-          [ pretty ("pack" :: T.Text)
-              <+> brackets [pretty t1, pretty v]
-              <+> pretty ("as" :: T.Text)
-          , pretty t2
+          [ "pack" <+> brackets [pp t1, pp v] <+> "as"
+          , pp t2
           ]
 
 
@@ -318,22 +312,13 @@ instance SubVals Tm where
 
 instance PP.Pretty Tm where
   pretty = \case
-    Let e1 e2 ->
-      PP.vsep
-        [ pretty ("let" :: T.Text) <+> pretty e1 <+> pretty ("in" :: T.Text)
-        , pretty e2
-        ]
+    Let e1 e2 -> PP.vsep ["let" <+> pp e1 <+> "in", pp e2]
     App e1 ts xs ->
-      parens [pretty e1]
-        <> do if null ts then mempty else brackets (fmap pretty ts)
-        <> parens (fmap pretty xs)
-    If0 v e1 e2 ->
-      pretty ("if0" :: T.Text)
-        <> parens [pretty v, pretty e1, pretty e2]
-    Halt v ->
-      PP.nest 2 $
-        PP.sep
-          [pretty ("halt" :: T.Text), parens [pretty v]]
+      parens [pp e1]
+        <> do if null ts then mempty else brackets (fmap pp ts)
+        <> parens (fmap pp xs)
+    If0 v e1 e2 -> "if0" <> parens [pp v, pp e1, pp e2]
+    Halt v -> nest $ PP.sep ["halt", parens [pp v]]
 
 
 instance Fv Tm where
@@ -392,39 +377,24 @@ instance SubVals Decl where
 
 instance PP.Pretty Decl where
   pretty = \case
-    Bind x v -> prettyDecl (pretty x) (pretty v)
-    At x i v ->
-      prettyDecl
-        (pretty x)
-        (pretty ("at" :: T.Text) <+> pretty i <+> pretty v)
-    Arith x p v1 v2 ->
-      prettyDecl
-        (pretty x)
-        (PP.sep [parens [pretty v1], pretty p <+> parens [pretty v2]])
+    Bind x v -> ppDecl (pp x) (pp v)
+    At x i v -> ppDecl (pp x) ("at" <+> pp i <+> pp v)
+    Arith x p' v1 v2 ->
+      ppDecl (pp x) (PP.sep [parens [pp v1], pp p' <+> parens [pp v2]])
     Unpack a x v ->
-      prettyDecl
-        (brackets [pretty a, pretty x])
-        (pretty ("unpack" :: T.Text) <+> parens [pretty v])
+      ppDecl (brackets [pp a, pp x]) ("unpack" <+> parens [pp v])
     Malloc x ts ->
-      prettyDecl
-        (pretty x)
-        (pretty ("malloc" :: T.Text) <+> brackets (fmap pretty ts))
+      ppDecl (pp x) ("malloc" <+> brackets (fmap pp ts))
     Update x v1 i v2 ->
-      PP.nest 2 $
+      nest $
         PP.sep
-          [ pretty x <+> PP.equals
-          , PP.nest 2 $
-              PP.sep
-                [ parens [pretty v1]
-                    <> brackets [pretty i]
-                    <+> pretty ("<-" :: T.Text)
-                , pretty v2
-                ]
+          [ pp x <+> PP.equals
+          , nest $ PP.sep [parens [pp v1] <> brackets [pp i] <+> "<-", pp v2]
           ]
 
 
-prettyDecl :: PP.Doc a -> PP.Doc a -> PP.Doc a
-prettyDecl x v = PP.nest 2 $ PP.sep [x <+> PP.equals, v]
+ppDecl :: PP.Doc a -> PP.Doc a -> PP.Doc a
+ppDecl x v = nest $ PP.sep [x <+> PP.equals, v]
 
 
 instance Ftv Decl where
@@ -442,13 +412,8 @@ deriving stock instance Show Prog
 instance PP.Pretty Prog where
   pretty (LetRec xs e) =
     PP.vsep
-      [ PP.nest
-          2
-          do
-            PP.vsep $
-              pretty ("letrec" :: T.Text)
-                : fmap
-                  do \(k, v) -> prettyDecl (pretty k) (pretty v)
-                  do M.toList xs
-      , PP.nest 2 $ PP.vsep [pretty ("in" :: T.Text), pretty e]
+      [ nest $
+          PP.vsep $
+            "letrec" : fmap (\(k, v) -> ppDecl (pp k) (pp v)) (M.toList xs)
+      , nest $ PP.vsep ["in", pp e]
       ]
