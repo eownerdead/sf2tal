@@ -32,6 +32,8 @@ common common
     -Widentities
     -Wmissing-deriving-strategies
     -fplugin=Effectful.Plugin
+    -fplugin=StackTrace.Plugin
+    -fdefer-type-errors
   build-depends:
     base ^>=4.18.2.1,
     safe-exceptions ^>=0.1.7.4,
@@ -41,6 +43,7 @@ common common
     containers ^>=0.6.7,
     microlens-platform ^>=0.4.3.5,
     prettyprinter ^>=1.7.1,
+    haskell-stack-trace-plugin ^>=0.1.3.0,
 
 
 library sf2tal-lib
@@ -49,6 +52,8 @@ library sf2tal-lib
   build-depends:
     effectful-microlens ^>=0.1.0.0,
     template-haskell ^>=2.20.0.0,
+    megaparsec ^>=9.5.0,
+    parser-combinators ^>=1.3.0,
   exposed-modules:
     SF2TAL,
     SF2TAL.Utils,
@@ -60,7 +65,9 @@ library sf2tal-lib
     SF2TAL.Tal,
   other-modules:
     SF2TAL.F.F,
+    SF2TAL.F.Infer,
     SF2TAL.F.Tc,
+    SF2TAL.F.Parse,
     SF2TAL.Middle.Middle,
     SF2TAL.Middle.Tc,
     SF2TAL.Middle.FromF,
@@ -70,6 +77,13 @@ library sf2tal-lib
     SF2TAL.Tal.FromA,
     SF2TAL.Tal.Tc,
     SF2TAL.Tal.Exec,
+
+executable sf2tal
+  import: common
+  hs-source-dirs: app
+  main-is: sf2tal.hs
+  build-depends:
+    sf2tal-lib,
 
 test-suite sf2tal-test
   import: common

@@ -25,6 +25,7 @@
         {
           self',
           inputs',
+          system,
           pkgs,
           ...
         }:
@@ -35,6 +36,15 @@
             root = ./.;
             overrides = self: super: {
               effectful-microlens = inputs'.effectful-microlens.packages.effectful-microlens;
+              haskell-stack-trace-plugin = super.developPackage {
+                root = pkgs.fetchFromGitHub {
+                  owner = "waddlaw";
+                  repo = "haskell-stack-trace-plugin";
+                  rev = "cd80eb034c32b28e98ab69d0e94f90577162c024";
+                  hash = "sha256-scfk2gaY/sjyr8RRmb0Sk0iBqCZmxrC+FluznfqvxM8=";
+                };
+                modifier = drv: pkgs.haskell.lib.dontCheck drv;
+              };
             };
           };
 

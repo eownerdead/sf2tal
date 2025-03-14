@@ -1,15 +1,17 @@
 module SF2TAL.F.Tc
-  ( ty
+  ( ck
   )
 where
 
 import Control.Exception.Safe
 import Control.Monad
+import Data.Foldable
 import Data.Map qualified as M
 import Effectful
 import Effectful.Reader.Static
+import Effectful.Reader.Static.Microlens
 import GHC.Stack
-import Lens.Micro.Platform
+import Lens.Micro.Platform hiding (preview, view)
 import Prettyprinter qualified as PP
 import SF2TAL.F.F
 import SF2TAL.PP
@@ -19,11 +21,12 @@ type Env = M.Map Name Ty
 
 
 data TcException where
-  TcException :: HasCallStack => PP.Doc ann -> TcException
+  TcException :: HasCallStack => PP.Doc ann -> Env -> TcException
 
 
 instance Show TcException where
-  show (TcException e) = docStr $ PP.vsep [e, pp $ prettyCallStack callStack]
+  show (TcException e env) =
+    docStr $ PP.vsep [e, "env:", ppMap ":" env, pp $ prettyCallStack callStack]
 
 
 instance Exception TcException
@@ -32,73 +35,83 @@ instance Exception TcException
 type Tc ann es = (Reader Env :> es)
 
 
-err :: (HasCallStack, Tc ann es) => PP.Doc ann -> Eff es a
-err = throwM . TcException
+err :: (HasCallStack, Tc ann es) => [PP.Doc ann] -> Eff es a
+err es = do
+  env <- ask
+  throwM $ TcException (PP.vsep es) env
 
 
 extendEnv :: Tc ann es => Name -> Ty -> Eff es a -> Eff es a
 extendEnv x t = local do M.insert x t
 
 
-ty :: Tm -> Eff es Tm
-ty e = runReader mempty do ty' e
+ck :: Tm -> Eff es ()
+ck = runReader mempty . void . ck'
 
 
-ty' :: Tc ann es => Tm -> Eff es Tm
-ty' = \case
-  Var x -> do
-    env <- ask
-    case env ^? ix x of
-      Just t -> pure $ Var x `Ann` t
-      Nothing -> err $ "Unbound variable " <> pp x
-  IntLit i -> pure $ Ann (IntLit i) TInt
-  LetRec xs e ->
-    local (fmap fst xs <>) do
-      xs' <- forM xs \(t, e') -> do
-        e'' <- ty' e'
-        when (ann e'' /= t) do err "LetRec: Type not match"
-        pure (t, e'')
-      e' <- ty' e
-      pure $ LetRec xs' e' `Ann` ann e'
-  Abs x1 t1 t2 e -> do
-    e' <- extendEnv x1 t1 do ty' e
-    when (ann e' /= t2) do err "Fix: e is not t2"
-    pure $ Abs x1 t1 t2 e' `Ann` (t1 `TFun` t2)
-  e1 `App` e2 -> do
-    e1' <- ty' e1
-    e2' <- ty' e2
-    if
-      | t1 `TFun` t2 <- ann e1' -> do
-          when (ann e2' /= t1) do err "App: Type not match"
-          pure $ (e1' `App` e2') `Ann` t2
-      | otherwise -> err "App: e1 is not TFun"
-  AbsT a e -> do
-    e' <- ty' e
-    pure $ AbsT a e' `Ann` TForall a (ann e')
-  e `AppT` t -> do
-    e' <- ty' e
-    if
-      | TForall a t' <- ann e' -> pure $ (e' `AppT` t) `Ann` tsubst a t t'
-      | otherwise -> err "AppT: e is not TForall"
-  Tuple es -> do
-    es' <- traverse ty' es
-    pure $ Tuple es' `Ann` TTuple (fmap ann es')
-  At i e -> do
-    e' <- ty' e
-    if
-      | TTuple ts <- ann e', Just t <- ts ^? ix i -> pure $ At i e' `Ann` t
-      | otherwise -> err "At: e is not TTuple or invalid i"
-  Arith p e1 e2 -> do
-    e1' <- ty' e1
-    when (ann e1' /= TInt) do err "Arith: e1 is not TInt"
-    e2' <- ty' e2
-    when (ann e2' /= TInt) do err "Arith: e2 is not TInt"
-    pure $ Arith p e1' e2' `Ann` TInt
-  If0 v e1 e2 -> do
-    v' <- ty' v
-    when (ann v' /= TInt) do err "If0: v is not TInt"
-    e1' <- ty' e1
-    e2' <- ty' e2
-    when (ann e1' /= ann e2') do err "If0: type of e1 and e2 is not same"
-    pure $ If0 v' e1' e2' `Ann` ann e1'
-  x@(_ `Ann` _) -> error $ "Ann: " <> show x
+ck' :: Tc ann es => Tm -> Eff es Ty
+ck' e = do
+  t <- case e of
+    Var x (Just t) -> do
+      preview (ix x) >>= \case
+        Just t'
+          | t == t' -> pure t
+          | otherwise ->
+              err ["Type of variable annotation does not match:" <+> pp t', pp e]
+        Nothing -> err ["Unbound variable", pp e]
+    Var _ Nothing -> err ["Unannotated variable", pp e]
+    IntLit _ -> pure TInt
+    LetRec xs e' ->
+      local (fmap tyOf xs <>) do
+        traverse_ ck' xs
+        ck' e'
+    Abs x1 (Just t1) e' -> do
+      t2 <- extendEnv x1 t1 do ck' e'
+      pure $ t1 `TFun` t2
+    Abs _ Nothing _ -> err ["Unannotated abstraction", pp e]
+    e1 `App` e2 -> do
+      t1 <- ck' e1
+      t2 <- ck' e2
+      if
+        | s1 `TFun` s2 <- t1 -> do
+            when (t2 /= s1) do
+              err
+                [ "Type of argument does not match"
+                , "expected:" <+> pp t2
+                , "actual:" <+> pp s1
+                , pp e
+                ]
+            pure s2
+        | otherwise -> err ["Applying non-function value", pp e]
+    AbsT a e' -> TForall a <$> ck' e'
+    e' `AppT` t -> do
+      ck' e' >>= \case
+        TForall a t' -> pure $ tsubst a t t'
+        _ -> err ["Applying non-polymorphism value", pp e]
+    Tuple es -> TTuple <$> traverse ck' es
+    At i e' -> do
+      ck' e' >>= \case
+        TTuple ts ->
+          if
+            | Just t' <- ts ^? ix (i - 1) -> pure t'
+            | otherwise -> err ["Invalid index", pp e]
+        t -> err ["Indexing a non-tuple value:" <+> pp t, pp e]
+    Arith _ e1 e2 -> do
+      t1 <- ck' e1
+      when (t1 /= TInt) do err ["LHS is not int, but" <+> pp t1, pp e]
+      t2 <- ck' e2
+      when (t2 /= TInt) do err ["RHS is not int, but" <+> pp t2, pp e]
+      pure TInt
+    If0 v e1 e2 -> do
+      tv <- ck' v
+      when (tv /= TInt) do err ["Type of the condition is not int, but" <+> pp tv, pp e]
+      t1 <- ck' e1
+      t2 <- ck' e2
+      when (t1 /= t2) do
+        err ["then and else is not a same", "then:" <+> pp t1, "else:" <+> pp t2, pp e]
+      pure t1
+    x@(_ `Ann` _) -> err ["Ann:" <+> pp x]
+
+  if t == tyOf e
+    then pure t
+    else err ["expected:" <+> pp t, "tyOf:" <+> pp (tyOf e), pp e]
