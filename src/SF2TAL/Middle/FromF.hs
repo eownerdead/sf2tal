@@ -4,12 +4,14 @@ module SF2TAL.Middle.FromF
 where
 
 import Data.Map qualified as M
+import Data.Text qualified as T
 import Effectful
 import Effectful.State.Static.Local
 import Effectful.State.Static.Local.Microlens
 import Lens.Micro.Platform hiding (preuse)
 import SF2TAL.F qualified as F
 import SF2TAL.Middle.Middle
+import SF2TAL.PP
 import SF2TAL.Uniq
 
 
@@ -59,60 +61,64 @@ expand k t k' = do
 
 kAbs :: K es => F.Tm -> Eff es Val
 kAbs = \case
-  F.Abs x1 t1 t2 e `F.Ann` _ -> do
-    t1' <- kTy t1
-    t2' <- kCont t2
+  F.Abs x1 (Just t) e -> do
+    t1' <- kTy t
+    t2' <- kCont (F.tyOf e)
     x1' <- freshen x1
     c <- fresh
     Abs [] [(x1', t1'), (c, t2')] <$> kExp e \k' ->
       pure $ App (Var c t2') [] [k']
-  F.AbsT a e `F.Ann` _ -> do
+  F.AbsT a e -> do
     a' <- freshen a
-    t' <- kCont $ F.ann e
+    t' <- kCont $ F.tyOf e
     c <- fresh
     Abs [a'] [(c, t')] <$> kExp e \k' -> pure $ App (Var c t') [] [k']
-  e -> error $ "kAbs: " <> show e
+  e -> error $ docStr $ "kAbs:" <+> pp e
 
 
 kExp :: K es => F.Tm -> (Val -> Eff es Tm) -> Eff es Tm
-kExp (u `F.Ann` t) k = case u of
-  F.Var x -> do
+kExp e k = case e of
+  F.Var x (Just t) -> do
     x' <- freshen x
     k . Var x' =<< kTy t
-  F.IntLit v -> k $ IntLit v
-  F.LetRec xs e -> do
+  F.Var x Nothing -> error $ "Unannotated variable: " <> T.unpack x
+  F.IntLit i -> k $ IntLit i
+  F.LetRec xs e' -> do
     xs' <-
       M.fromList
-        <$> traverse (\(x, (_t, e1)) -> (,) <$> freshen x <*> kAbs e1) (M.toList xs)
-    LetRec xs' <$> kExp e k
+        <$> traverse (\(x, e1) -> (,) <$> freshen x <*> kAbs e1) (M.toList xs)
+    LetRec xs' <$> kExp e' k
   F.Abs{} -> do
     x <- fresh
-    t' <- kTy t
-    e' <- kAbs (u `F.Ann` t)
+    t' <- kTy $ F.tyOf e
+    e' <- kAbs e
     LetRec (M.fromList [(x, e')]) <$> k (Var x t')
-  v1 `F.App` v2 -> kExp v1 \x1 -> kExp v2 \x2 -> do
-    t' <- kTy t
+  e1 `F.App` e2 -> kExp e1 \x1 -> kExp e2 \x2 -> do
+    t' <- kTy $ F.tyOf e
     expand k t' \k' ->
       pure $ App x1 [] [x2, k']
-  F.AbsT _a _v -> do
+  F.AbsT{} -> do
     x <- fresh
-    t' <- kTy t
-    e' <- kAbs (u `F.Ann` t)
+    t' <- kTy $ F.tyOf e
+    e' <- kAbs e
     LetRec (M.fromList [(x, e')]) <$> k (Var x t')
-  v `F.AppT` s -> do
-    t' <- kTy t
+  e' `F.AppT` s -> do
+    t' <- kTy $ F.tyOf e
     s' <- kTy s
     expand k t' \k' ->
-      kExp v \x -> pure $ App x [s'] [k']
+      kExp e' \x -> pure $ App x [s'] [k']
   F.Tuple vs ->
     foldr
       (\v k' vs' -> kExp v \x -> k' (x : vs'))
       (k . Tuple)
       vs
       []
-  F.At i v -> kExp v \x -> do
-    y <- fresh
-    Let (At y i x) <$> (k . Var y =<< kTy t)
+  F.At i e'
+    | F.TTuple ts <- F.tyOf e'
+    , Just t <- ts ^? ix (i - 1) -> kExp e' \x -> do
+        y <- fresh
+        Let (At y i x) <$> (k . Var y =<< kTy t)
+    | otherwise -> error $ docStr $ "At: " <> pp e
   F.Arith p e1 e2 -> do
     kExp e1 \x1 -> do
       kExp e2 \x2 -> do
@@ -123,5 +129,4 @@ kExp (u `F.Ann` t) k = case u of
       e2' <- kExp e2 k
       e3' <- kExp e3 k
       pure $ If0 x e2' e3'
-  _ -> error ""
-kExp x _ = error $ "unannotated: " <> show x
+  _ -> error $ docStr $ "kExp: " <> pp e

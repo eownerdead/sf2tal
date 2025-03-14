@@ -1,0 +1,5 @@
+let
+  foo = \m. \n. m*2 + n;
+  -- foo3 = foo 3;
+in
+(\foo3. foo3 10) (foo 3)

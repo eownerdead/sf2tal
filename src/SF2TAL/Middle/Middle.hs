@@ -18,6 +18,12 @@ module SF2TAL.Middle.Middle
   , appT
   , Decl (..)
   , Tm (..)
+  , Plate (..)
+  , ty_
+  , val
+  , tm
+  , decl
+  , plate
   )
 where
 
@@ -30,6 +36,7 @@ import Prettyprinter qualified as PP
 import SF2TAL.F (Prim)
 import SF2TAL.PP
 import SF2TAL.Uniq
+import SF2TAL.Utils
 
 
 type TName = Int
@@ -104,9 +111,7 @@ instance PP.Pretty Ty where
         body = parens (fmap pp xs) <+> "-> void"
     TTuple ts ->
       angles $
-        fmap
-          (\(t, i) -> (if i then mempty else "*") <> pp t)
-          ts
+        fmap (\(t, i) -> (if i then mempty else "*") <> pp t) ts
     TExists a t ->
       nest $
         PP.sep
