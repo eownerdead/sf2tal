@@ -4,13 +4,14 @@ import Data.Text.IO qualified as T
 import Effectful
 import SF2TAL hiding (main)
 import SF2TAL.Tal qualified as Tal
+import SF2TAL.Utils
 import Test.Hspec
 
 
 runTest :: String -> IO Tal.Val
 runTest name = do
   s <- T.readFile ("test/" <> name <> ".txt")
-  runEff $ run s
+  runEff $ runLogStderr (const True) $ run s
 
 
 runExpect :: String -> Tal.Val -> SpecWith (Arg Expectation)
