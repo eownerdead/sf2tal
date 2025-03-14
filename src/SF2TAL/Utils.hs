@@ -1,5 +1,6 @@
 module SF2TAL.Utils
-  ( classIdFields
+  ( module SF2TAL.Log
+  , classIdFields
   , makeFieldsId
   , int2Text
   , universeOf
@@ -17,6 +18,7 @@ import Data.Text.Lazy.Builder qualified as LT
 import Data.Text.Lazy.Builder.Int qualified as LT
 import Language.Haskell.TH qualified as TH
 import Lens.Micro.Platform
+import SF2TAL.Log
 
 
 int2Text :: Int -> T.Text
