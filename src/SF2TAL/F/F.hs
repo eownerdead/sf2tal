@@ -1,6 +1,5 @@
 module SF2TAL.F.F
   ( TName
-  , Name
   , Ty (..)
   , SubTys (..)
   , ftv
@@ -16,13 +15,11 @@ import Data.Set qualified as S
 import Data.Text qualified as T
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
+import SF2TAL.Name
 import SF2TAL.PP
 
 
 type TName = T.Text
-
-
-type Name = T.Text
 
 
 -- | t

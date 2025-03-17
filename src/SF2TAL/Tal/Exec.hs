@@ -18,9 +18,9 @@ import GHC.Stack
 import Lens.Micro.Platform hiding (preuse, use, (%=), (?=))
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim (..))
+import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Tal.Tal
-import SF2TAL.Tal.Tc
 import SF2TAL.Uniq
 import SF2TAL.Utils
 
@@ -124,7 +124,7 @@ step (Seq i is) = case i of
           w -> err ["Value of 2nd operand is not tuple, but" <+> pp w, pp i]
       r' -> err ["2nd operand is not label, but" <+> pp r', pp i]
   Malloc rd ts -> do
-    l <- fresh
+    l <- freshName
     heaps . at l ?= Tuple (fmap Junk ts)
     tHeap . at l ?= TTuple (fmap (,False) ts)
     regFile . at rd ?= Label l

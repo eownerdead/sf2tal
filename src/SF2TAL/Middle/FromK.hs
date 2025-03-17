@@ -10,6 +10,7 @@ import Effectful
 import Effectful.Writer.Static.Local
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
+import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Uniq
 
@@ -46,7 +47,7 @@ cExp = \case
     let fvs = M.toList $ fv $ LetRec xs e1
     vEnv <- Tuple <$> mapM (\(y, s) -> Var y <$> cTy s) fvs
     tEnv <- tTuple <$> traverse (cTy . snd) fvs
-    zEnv <- fresh
+    zEnv <- freshName
     xs' <- forM xs \case
       v@(Abs as xs' e) -> do
         e' <- cExp e
@@ -58,7 +59,7 @@ cExp = \case
                 (k e')
                 (zip [1 ..] $ fmap fst fvs)
         let tRawCode = TFix (bs <> as) (tEnv : ts')
-        zCode <- fresh
+        zCode <- freshName
         pack <-
           Pack
             tEnv
@@ -70,10 +71,10 @@ cExp = \case
     forM_ xs' \(zCode, vCode, _) -> tell $ M.singleton zCode (vCode pack)
     pack <$> cExp e1
   App v ts vs -> do
-    z <- fresh
+    z <- freshName
     v' <- cVal v
-    zCode <- fresh
-    zEnv <- fresh
+    zCode <- freshName
+    zEnv <- freshName
     ts' <- traverse cTy ts
     vs' <- traverse cVal vs
     cTy (ty v) >>= \case

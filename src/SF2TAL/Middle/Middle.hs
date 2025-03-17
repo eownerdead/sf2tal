@@ -1,6 +1,5 @@
 module SF2TAL.Middle.Middle
   ( TName
-  , Name
   , Fv (..)
   , Ftv (..)
   , Ty (..)
@@ -34,15 +33,13 @@ import Effectful
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim)
+import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Uniq
 import SF2TAL.Utils
 
 
 type TName = Int
-
-
-type Name = Int
 
 
 class Fv a where
@@ -271,7 +268,7 @@ subst sub =
           assert (t == ty v') do pure v'
       | otherwise -> pure $ Var x t
     Abs as xs e -> do
-      xs' <- traverse (const fresh) xs
+      xs' <- traverse (const freshName) xs
       let xs'' = zip xs' (fmap snd xs)
       let sub' = M.fromList $ zip (fmap fst xs) $ fmap (uncurry Var) xs''
       Abs as xs'' <$> subst (sub <> sub') e

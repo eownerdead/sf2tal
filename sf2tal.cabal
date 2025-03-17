@@ -58,6 +58,7 @@ library sf2tal-lib
   exposed-modules:
     SF2TAL,
     SF2TAL.Utils,
+    SF2TAL.Name,
     SF2TAL.PP,
     SF2TAL.Uniq,
     SF2TAL.Log,

@@ -18,6 +18,7 @@ import GHC.Stack
 import Lens.Micro.Platform hiding (preuse, preview, (.=))
 import Prettyprinter qualified as PP
 import SF2TAL.F.F
+import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Uniq
 import SF2TAL.Utils
@@ -26,7 +27,7 @@ import SF2TAL.Utils
 type TcEnv = M.Map Name Ty
 
 
-type TcSt = M.Map Name Ty
+type TcSt = M.Map TName Ty
 
 
 data TcException where
@@ -78,12 +79,12 @@ type Rho = Ty -- No top-level forall
 type Tau = Ty -- No forall anywhere
 
 
-freshName :: Uniq :> es => Eff es TName
-freshName = int2Text <$> fresh
+freshTName :: Uniq :> es => Eff es TName
+freshTName = int2Text <$> fresh
 
 
 freshMeta :: Uniq :> es => Eff es Ty
-freshMeta = TVar . ("_" <>) <$> freshName
+freshMeta = TVar . ("_" <>) <$> freshTName
 
 
 readMeta :: Tc es => TName -> Eff es (Maybe Ty)
@@ -115,7 +116,7 @@ skolemise :: Tc es => Sigma -> Eff es (Scheme, Tm -> Tm)
 skolemise = \case
   TForall a t -> do
     -- PRPOLY
-    a' <- freshName
+    a' <- freshTName
     (Scheme as t', f) <- skolemise $ tsubst a (TVar a') t
     pure (Scheme (S.insert a' as) t', \x -> AbsT a' $ f (x `AppT` TVar a'))
   t1 `TFun` t2 -> do
@@ -171,7 +172,7 @@ instantiate = \case
 
 quantify :: Tc es => S.Set TName -> Tm -> Ty -> Eff es (Sigma, Tm)
 quantify as e t = do
-  as' <- replicateM (length as) freshName
+  as' <- replicateM (length as) freshTName
   traverse_ (\(a, a') -> writeMeta a (TVar a')) (S.toList as `zip` as')
   t' <- zonk t
   pure (foldr TForall t' as', foldr AbsT e as')
