@@ -24,14 +24,12 @@ import Data.Map qualified as M
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim (..))
+import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Utils
 
 
 type TName = Int
-
-
-type Name = Int
 
 
 class TSubst a where

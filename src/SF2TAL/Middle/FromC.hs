@@ -8,6 +8,7 @@ import Effectful
 import Effectful.Writer.Static.Local
 import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
+import SF2TAL.Name
 import SF2TAL.Uniq
 
 
@@ -90,8 +91,8 @@ aVal = \case
     let ts = fmap (aTy . ty) vs
     vs' <- traverse aVal vs
 
-    y0 <- fresh
-    ys <- replicateM n fresh
+    y0 <- freshName
+    ys <- replicateM n freshName
     tell $
       Malloc y0 ts
         : [ Update y (Var y' $ tTupleInitedToN (i - 1) ts) i v'

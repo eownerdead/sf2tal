@@ -7,6 +7,7 @@ import Data.Map qualified as M
 import Effectful
 import SF2TAL.F (Prim (..))
 import SF2TAL.Middle
+import SF2TAL.Name
 import SF2TAL.Uniq
 import SF2TAL.Utils
 
@@ -32,6 +33,7 @@ occurs e =
 
 -- occursOf :: SubVals a => Name -> a -> Int
 -- occursOf x e = M.findWithDefault x 0 (occurs e)
+
 
 class Size a where
   size :: a -> Int

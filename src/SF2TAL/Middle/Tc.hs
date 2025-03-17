@@ -13,8 +13,8 @@ import GHC.Stack
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.Middle.Middle
+import SF2TAL.Name
 import SF2TAL.PP
-import SF2TAL.Utils
 
 
 type Env = M.Map Name Ty
@@ -46,7 +46,7 @@ lookupVar x = do
   env <- ask
   if
     | Just t <- env ^? ix x -> pure t
-    | otherwise -> err ["Unbounded variable" <+> pp (int2Text x)]
+    | otherwise -> err ["Unbounded variable" <+> pp x]
 
 
 ckTm :: Tm -> Eff es ()

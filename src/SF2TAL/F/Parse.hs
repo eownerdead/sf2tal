@@ -11,6 +11,7 @@ import Data.Text qualified as T
 import Data.Void
 import Effectful
 import SF2TAL.F.F
+import SF2TAL.Name
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
@@ -35,12 +36,16 @@ reserved :: S.Set T.Text
 reserved = S.fromList ["int", "at", "let", "and", "in", "if0", "then", "else"]
 
 
-ident :: Parser T.Text
-ident = label "identifier" $ try do
+tIdent :: Parser TName
+tIdent = label "identifier" $ try do
   s <- tok $ T.cons <$> letterChar <*> takeWhileP Nothing isAlphaNum
   if S.member s reserved
     then unexpected $ Label $ NE.fromList $ "reserved word " <> T.unpack s
     else pure s
+
+
+ident :: Parser Name
+ident = Name <$> tIdent <*> pure 0
 
 
 kw :: T.Text -> Parser ()
@@ -54,7 +59,7 @@ sym = void . L.symbol ws
 tSimp :: Parser Ty
 tSimp =
   choice
-    [ TVar <$> ident
+    [ TVar <$> tIdent
     , TInt <$ kw "int"
     , TTuple <$> between (sym "<") (sym ">") (sepEndBy ty (sym ","))
     , between (sym "(") (sym ")") ty
@@ -71,7 +76,7 @@ tOps =
 ty :: Parser Ty
 ty =
   label "type" . choice $
-    [ TForall <$> (kw "forall" *> ident <* sym ".") <*> ty
+    [ TForall <$> (kw "forall" *> tIdent <* sym ".") <*> ty
     , tOps
     ]
 

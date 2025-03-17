@@ -11,6 +11,7 @@ import Effectful.Reader.Static.Microlens
 import Effectful.Writer.Static.Local
 import Lens.Micro.Platform hiding (preview, view)
 import SF2TAL.Middle qualified as M
+import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Tal.Tal
 import SF2TAL.Uniq
@@ -61,7 +62,7 @@ tProg p = do
 tProg' :: Tal es => M.Tm -> Eff es Seq
 tProg' = \case
   M.LetRec xs e -> do
-    vs <- traverse (const fresh) xs
+    vs <- traverse (const freshName) xs
     local (vals .~ fmap Label vs) do
       hs' <- traverse tHVal $ M.mapKeys (vs M.!) xs
       is <- tExp e
@@ -187,7 +188,7 @@ tExp = \case
             <> [Mov (A r) (Reg r') | r <- [(1 :: Int) ..] | r' <- rs]
   M.If0 v e1 e2 -> do
     r <- R <$> fresh
-    l <- fresh
+    l <- freshName
     is1 <- tExp e1
     is2 <- tExp e2
     v' <- tVal v
