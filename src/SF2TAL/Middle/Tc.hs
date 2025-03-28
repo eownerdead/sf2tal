@@ -59,7 +59,7 @@ ckTm' = \case
     ckDecl d $ ckTm' e
     pure ()
   LetRec xs e -> do
-    local (fmap ty xs <>) do
+    local (fmap tyOf xs <>) do
       traverse_ ckVal xs
       ckTm' e
   e@(App v bs vs) ->
@@ -151,6 +151,6 @@ ckVal v = do
     Pack _t1 _v t2 ->
       pure t2
 
-  if t == ty v
+  if t == tyOf v
     then pure t
     else error "ty: type does not match"

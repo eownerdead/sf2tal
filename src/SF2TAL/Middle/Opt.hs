@@ -8,31 +8,35 @@ import Effectful
 import SF2TAL.F (Prim (..))
 import SF2TAL.Middle
 import SF2TAL.Name
+import SF2TAL.Plate
 import SF2TAL.Uniq
-import SF2TAL.Utils
 
 
 type Occurs = M.Map Name Int
 
 
-oUnion :: Occurs -> Occurs -> Occurs
-oUnion = M.unionWith (+)
+newtype OMap = OMap Occurs
 
 
-oUnions :: Foldable f => f Occurs -> Occurs
-oUnions = foldr oUnion mempty
+instance Semigroup OMap where
+  OMap x <> OMap y = OMap $ M.unionWith (+) x y
 
 
-occurs :: SubVals a => a -> Occurs
-occurs e =
-  oUnions
-    [ M.singleton x 1
-    | Var x _t <- universeOnOf subVals subVals e
-    ]
+instance Monoid OMap where
+  mempty = OMap mempty
 
 
--- occursOf :: SubVals a => Name -> a -> Int
--- occursOf x e = M.findWithDefault x 0 (occurs e)
+occurs :: ProjOf Plate a => a -> Occurs
+occurs e = oc
+  where
+    OMap oc = foldFor (preFold $ purePlate{pVal}) e
+    pVal = \case
+      Var x _ -> Const $ OMap $ M.singleton x 1
+      _ -> Const mempty
+
+
+occursOf :: ProjOf Plate a => Name -> a -> Int
+occursOf x e = M.findWithDefault 0 x (occurs e)
 
 
 class Size a where
@@ -63,42 +67,44 @@ instance Size Tm where
 
 
 threshold :: Int
-threshold = 100
+threshold = 10
+
+
+inlineApp :: Uniq :> es => Name -> Val -> Tm -> Eff es Tm
+inlineApp x (Abs as xs e) = traverseMFor $ postMap purePlate{pTm}
+  where
+    pTm = \case
+      App (Var y _) ts vs
+        | y == x ->
+            let e' = foldr (uncurry tsubst) e (zip as ts)
+            in pure $ foldr (\(x', v') -> Let (Bind x' v')) e' (zip (fmap fst xs) vs)
+      e' -> pure e'
+inlineApp _ _ = error "Value of letrec is not a function"
 
 
 simp :: Uniq :> es => Tm -> Eff es Tm
-simp = tm
-
-
-tm :: Uniq :> es => Tm -> Eff es Tm
-tm = \case
-  Let (Arith x p (IntLit n) (IntLit m)) e -> do
-    e' <- subst (M.singleton x (IntLit n')) e
-    tm e'
-    where
-      n' = case p of
-        Add -> n + m
-        Mul -> n * m
-        Sub -> n - m
-  Let d e -> Let <$> subVals val d <*> tm e
-  LetRec xs e -> LetRec <$> traverse val xs <*> tm e
-  App v ts vs -> do
-    vs' <- traverse val vs
-    val v >>= \case
-      Abs as xs e ->
-        let e' = foldr (uncurry tsubst) e (zip as ts)
-        in pure $ foldr (\(x, v') -> Let (Bind x v')) e' (zip (fmap fst xs) vs')
-      v' -> pure $ App v' ts vs'
-  If0 v e1 e2 ->
-    val v >>= \case
-      IntLit i
-        | i == 0 -> tm e1
-        | otherwise -> tm e2
-      v' -> If0 v' <$> tm e1 <*> tm e2
-  Halt v -> Halt <$> val v
-
-
-val :: Uniq :> es => Val -> Eff es Val
-val = subVals \case
-  Abs as xs e -> Abs as xs <$> tm e
-  v -> val v
+simp = traverseMFor $ postMap purePlate{pTm}
+  where
+    pTm = \case
+      Let (Arith x p (IntLit n) (IntLit m)) e -> do
+        subst (M.singleton x (IntLit n')) e
+        where
+          n' = case p of
+            Add -> n + m
+            Mul -> n * m
+            Sub -> n - m
+      LetRec (M.toList -> []) e -> pure e
+      LetRec xs@(M.toList -> [(x1, v1)]) e ->
+        case (occursOf x1 e, occursOf x1 v1) of
+          (0, 0) -> pure e
+          (1, 0) -> LetRec xs <$> inlineApp x1 v1 e
+          (_, _)
+            | size v1 <= threshold -> LetRec xs <$> inlineApp x1 v1 e
+            | otherwise -> pure $ LetRec xs e
+      If0 v e1 e2 ->
+        case v of
+          IntLit i
+            | i == 0 -> pure e1
+            | otherwise -> pure e2
+          v' -> pure $ If0 v' e1 e2
+      e -> pure e

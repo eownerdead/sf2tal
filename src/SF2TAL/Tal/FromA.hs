@@ -67,7 +67,7 @@ tProg' = \case
       hs' <- traverse tHVal $ M.mapKeys (vs M.!) xs
       is <- tExp e
       labeled @"heaps" $ tell hs'
-      labeled @"tHeap" $ tell $ fmap (tTy . M.ty) $ M.mapKeys (vs M.!) xs
+      labeled @"tHeap" $ tell $ fmap (tTy . M.tyOf) $ M.mapKeys (vs M.!) xs
       pure is
   _ -> error "Top-level is not LetRec"
 
@@ -106,11 +106,11 @@ tExp = \case
       v' <- tVal v
       is <-
         local
-          do (vals . at x ?~ Reg r) . (tRegFile . at r ?~ tTy (M.ty v))
+          do (vals . at x ?~ Reg r) . (tRegFile . at r ?~ tTy (M.tyOf v))
           do tExp e
       pure $ Mov r v' `Seq` is
     M.At x i v
-      | M.TTuple ts <- M.ty v -> do
+      | M.TTuple ts <- M.tyOf v -> do
           r <- R <$> fresh
           v' <- tVal v
           is <-
@@ -122,7 +122,7 @@ tExp = \case
           pure $ Mov r v' `Seq` Ld r r (i - 1) `Seq` is
       | otherwise ->
           error $
-            "At: t is not TTuple, but " <> T.unpack (prettyText $ M.ty v)
+            "At: t is not TTuple, but " <> T.unpack (prettyText $ M.tyOf v)
     M.Arith x p v1 v2 -> do
       r <- R <$> fresh
       v1' <- tVal v1
@@ -133,7 +133,7 @@ tExp = \case
           do tExp e
       pure $ Mov r v1' `Seq` Arith p r r v2' `Seq` is
     M.Unpack a x v
-      | M.TExists _b _t' <- M.ty v -> do
+      | M.TExists _b _t' <- M.tyOf v -> do
           r <- R <$> fresh
           v' <- tVal v
           is <-
@@ -141,11 +141,11 @@ tExp = \case
               do
                 (vals . at x ?~ Reg r)
                   . (tCtx %~ S.insert a)
-                  . (tRegFile . at r ?~ tTy (M.ty v))
+                  . (tRegFile . at r ?~ tTy (M.tyOf v))
               do tExp e
           pure $ Unpack a r v' `Seq` is
       | otherwise ->
-          error $ "t is not TExists, but " <> T.unpack (prettyText (M.ty v))
+          error $ "t is not TExists, but " <> T.unpack (prettyText (M.tyOf v))
     M.Malloc x ts -> do
       r <- R <$> fresh
       is <-
@@ -156,7 +156,7 @@ tExp = \case
           do tExp e
       pure $ Malloc r (fmap tTy ts) `Seq` is
     M.Update x v1 i v2
-      | M.TTuple ts <- M.ty v1 -> do
+      | M.TTuple ts <- M.tyOf v1 -> do
           r <- R <$> fresh
           v1' <- tVal v1
           r' <- R <$> fresh
@@ -173,7 +173,7 @@ tExp = \case
           pure $ Mov r v1' `Seq` Mov r' v2' `Seq` St r (i - 1) r' `Seq` is
       | otherwise ->
           error $
-            "Update: t is not TTuple, but " <> T.unpack (prettyText $ M.ty v1)
+            "Update: t is not TTuple, but " <> T.unpack (prettyText $ M.tyOf v1)
   M.LetRec _xs _e -> error "LetRec in non top-level"
   M.App v as vs -> do
     unless (null as) $ error "not (null as)"
@@ -199,4 +199,4 @@ tExp = \case
     pure $ Mov r v' `Seq` Bnz r (Label l) `Seq` is1
   M.Halt v -> do
     v' <- tVal v
-    pure $ Mov (A 1) v' `Seq` Halt (tTy (M.ty v))
+    pure $ Mov (A 1) v' `Seq` Halt (tTy (M.tyOf v))

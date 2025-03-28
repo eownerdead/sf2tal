@@ -20,6 +20,7 @@ import Prettyprinter qualified as PP
 import SF2TAL.F.F
 import SF2TAL.Name
 import SF2TAL.PP
+import SF2TAL.Plate
 import SF2TAL.Uniq
 import SF2TAL.Utils
 
@@ -133,31 +134,20 @@ skolemise = \case
   t -> pure (Scheme mempty t, id) -- PRMONO
 
 
--- Ugh...
-class Zonk a where
-  zonk :: Tc es => a -> Eff es a
-
-
-instance Zonk Ty where
-  zonk t = subTys zonk' =<< zonk' t
-
-
-instance Zonk Tm where
-  zonk = subTys zonk'
-
-
-zonk' :: Tc es => Ty -> Eff es Ty
-zonk' = \case
-  TVar a
-    | T.isPrefixOf "_" a -> do
-        readMeta a >>= \case
-          Nothing -> pure $ TVar a
-          Just t -> do
-            t' <- zonk t
-            writeMeta a t'
-            pure t'
-    | otherwise -> pure $ TVar a
-  t -> subTys zonk' t
+zonk :: (Tc es, ProjOf Plate a) => a -> Eff es a
+zonk = traverseMFor $ postMap purePlate{pTy}
+  where
+    pTy = \case
+      TVar a
+        | T.isPrefixOf "_" a -> do
+            readMeta a >>= \case
+              Nothing -> pure $ TVar a
+              Just t -> do
+                t' <- zonk t
+                writeMeta a t'
+                pure t'
+        | otherwise -> pure $ TVar a
+      t -> pure t
 
 
 instantiate :: Tc es => Sigma -> Eff es (Rho, Tm -> Tm)
