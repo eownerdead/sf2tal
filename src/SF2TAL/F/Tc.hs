@@ -8,7 +8,6 @@ import Control.Monad
 import Data.Foldable
 import Data.Map qualified as M
 import Effectful
-import Effectful.Reader.Static
 import Effectful.Reader.Static.Microlens
 import GHC.Stack
 import Lens.Micro.Platform hiding (preview, view)

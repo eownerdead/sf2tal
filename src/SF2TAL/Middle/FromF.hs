@@ -5,7 +5,6 @@ where
 
 import Data.Map qualified as M
 import Effectful
-import Effectful.State.Static.Local
 import Effectful.State.Static.Local.Microlens
 import Lens.Micro.Platform hiding (preuse)
 import SF2TAL.F qualified as F
