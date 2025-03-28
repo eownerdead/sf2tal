@@ -1,12 +1,14 @@
+{-# LANGUAGE FieldSelectors #-}
+
 module SF2TAL.F.F
   ( TName
   , Ty (..)
-  , SubTys (..)
+  , Prim (..)
+  , Tm (..)
+  , Plate (..)
+  , tyOf
   , ftv
   , tsubst
-  , Tm (..)
-  , tyOf
-  , Prim (..)
   )
 where
 
@@ -17,6 +19,7 @@ import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.Name
 import SF2TAL.PP
+import SF2TAL.Plate
 
 
 type TName = T.Text
@@ -36,60 +39,14 @@ data Ty where
   TTuple :: [Ty] -> Ty
 
 
-deriving stock instance Show Ty
-
-
-instance Eq Ty where
-  TVar a == TVar b = a == b
-  TInt == TInt = True
-  (s1 `TFun` s2) == (t1 `TFun` t2) = s1 == t1 && s2 == t2
-  (TForall a s) == (TForall b t) = s == tsubst b (TVar a) t
-  TTuple ss == TTuple ts = ss == ts
-  _ == _ = False
-
-
-class SubTys a where
-  subTys :: Traversal' a Ty
-
-
-instance SubTys Ty where
-  subTys f = \case
-    TVar a -> pure $ TVar a
-    TInt -> pure TInt
-    t1 `TFun` t2 -> TFun <$> f t1 <*> f t2
-    TForall a t -> TForall a <$> f t
-    TTuple ts -> TTuple <$> traverse f ts
-
-
-instance PP.Pretty Ty where
-  pretty = \case
-    TVar x -> pp x
-    TInt -> "int"
-    t1 `TFun` t2 -> pp t1 <+> "->" <+> pp t2
-    TForall a t -> "forall" <+> pp a <> "." <+> pp t
-    TTuple ts -> angles $ fmap pp ts
-
-
-ftv :: Ty -> S.Set TName
-ftv = \case
-  TVar a -> S.singleton a
-  TInt -> mempty
-  t1 `TFun` t2 -> ftv t1 <> ftv t2
-  TForall a t -> S.delete a (ftv t)
-  TTuple ts -> foldMap ftv ts
-
-
-tsubst :: TName -> Ty -> Ty -> Ty
-tsubst a t' = \case
-  TVar b
-    | a == b -> t'
-    | otherwise -> TVar b
-  TInt -> TInt
-  t1 `TFun` t2 -> tsubst a t' t1 `TFun` tsubst a t' t2
-  TForall b t
-    | a == b -> TForall b t
-    | otherwise -> TForall b (tsubst a t' t)
-  TTuple ts -> TTuple $ fmap (tsubst a t') ts
+-- | p
+data Prim
+  = -- | +
+    Add
+  | -- | -
+    Sub
+  | -- | *
+    Mul
 
 
 -- | u
@@ -120,26 +77,76 @@ data Tm where
   Ann :: Tm -> Ty -> Tm
 
 
-deriving stock instance Eq Tm
+deriving stock instance Show Ty
+
+
+deriving stock instance Show Prim
 
 
 deriving stock instance Show Tm
 
 
-instance SubTys Tm where
-  subTys f = \case
-    Var x t -> Var x <$> traverse f t
-    IntLit i -> pure $ IntLit i
-    LetRec xs e -> LetRec <$> traverse (subTys f) xs <*> subTys f e
-    Abs x t e -> Abs x <$> traverse f t <*> subTys f e
-    e1 `App` e2 -> App <$> subTys f e1 <*> subTys f e2
-    AbsT a e -> AbsT a <$> subTys f e
-    e `AppT` t -> AppT <$> subTys f e <*> f t
-    Tuple es -> Tuple <$> traverse (subTys f) es
-    At i e -> At i <$> subTys f e
-    Arith p e1 e2 -> Arith p <$> subTys f e1 <*> subTys f e2
-    If0 e1 e2 e3 -> If0 <$> subTys f e1 <*> subTys f e2 <*> subTys f e3
-    e `Ann` t -> Ann <$> subTys f e <*> f t
+instance Eq Ty where
+  TVar a == TVar b = a == b
+  TInt == TInt = True
+  (s1 `TFun` s2) == (t1 `TFun` t2) = s1 == t1 && s2 == t2
+  (TForall a s) == (TForall b t) = s == tsubst b (TVar a) t
+  TTuple ss == TTuple ts = ss == ts
+  _ == _ = False
+
+
+deriving stock instance Eq Prim
+
+
+deriving stock instance Eq Tm
+
+
+data Plate f = Plate
+  { pTy :: Ty -> f Ty
+  , pTm :: Tm -> f Tm
+  }
+
+
+instance ProjOf Plate Ty where
+  getProj = pTy
+
+
+instance ProjOf Plate Tm where
+  getProj = pTm
+
+
+instance Multiplate Plate where
+  multiplate (p :: Plate f) = Plate{pTy, pTm}
+    where
+      infixl 4 <$>:
+      infixl 4 <*>:
+      (<$>:) :: ProjOf Plate a => (a -> b) -> a -> f b
+      f <$>: x = f <$> getProj p x
+      (<*>:) :: ProjOf Plate a => f (a -> b) -> a -> f b
+      f <*>: x = f <*> getProj p x
+      pTy = \case
+        TVar a -> pure $ TVar a
+        TInt -> pure TInt
+        t1 `TFun` t2 -> TFun <$>: t1 <*>: t2
+        TForall a t -> TForall a <$>: t
+        TTuple ts -> TTuple <$> traverse (getProj p) ts
+
+      pTm = \case
+        Var x t -> Var x <$> traverse (getProj p) t
+        IntLit i -> pure $ IntLit i
+        LetRec xs e -> LetRec <$> traverse (getProj p) xs <*>: e
+        Abs x t e -> Abs x <$> traverse (getProj p) t <*>: e
+        e1 `App` e2 -> App <$>: e1 <*>: e2
+        AbsT a e -> AbsT a <$>: e
+        e `AppT` t -> AppT <$>: e <*>: t
+        Tuple es -> Tuple <$> traverse (getProj p) es
+        At i e -> At i <$>: e
+        Arith op e1 e2 -> Arith op <$>: e1 <*>: e2
+        If0 e1 e2 e3 -> If0 <$>: e1 <*>: e2 <*>: e3
+        e `Ann` t -> Ann <$>: e <*>: t
+
+
+  mkPlate f = Plate (f pTy) (f pTm)
 
 
 tyOf :: Tm -> Ty
@@ -169,12 +176,50 @@ tyOf = \case
   _ `Ann` t -> t
 
 
+ftv :: Ty -> S.Set TName
+ftv = \case
+  TVar a -> S.singleton a
+  TInt -> mempty
+  t1 `TFun` t2 -> ftv t1 <> ftv t2
+  TForall a t -> S.delete a (ftv t)
+  TTuple ts -> foldMap ftv ts
+
+
+tsubst :: TName -> Ty -> Ty -> Ty
+tsubst a t' = \case
+  TVar b
+    | a == b -> t'
+    | otherwise -> TVar b
+  TInt -> TInt
+  t1 `TFun` t2 -> tsubst a t' t1 `TFun` tsubst a t' t2
+  TForall b t
+    | a == b -> TForall b t
+    | otherwise -> TForall b (tsubst a t' t)
+  TTuple ts -> TTuple $ fmap (tsubst a t') ts
+
+
 ppSimp :: Tm -> PP.Doc ann
 ppSimp e = case e of
   -- Var{} -> pp e
   IntLit{} -> pp e
   Tuple{} -> pp e
   _ -> parens [pp e]
+
+
+instance PP.Pretty Ty where
+  pretty = \case
+    TVar x -> pp x
+    TInt -> "int"
+    t1 `TFun` t2 -> pp t1 <+> "->" <+> pp t2
+    TForall a t -> "forall" <+> pp a <> "." <+> pp t
+    TTuple ts -> angles $ fmap pp ts
+
+
+instance PP.Pretty Prim where
+  pretty = \case
+    Add -> "+"
+    Sub -> "-"
+    Mul -> "*"
 
 
 instance PP.Pretty Tm where
@@ -202,26 +247,3 @@ instance PP.Pretty Tm where
     Arith p e1 e2 -> ppSimp e1 <+> pp p <+> ppSimp e2
     If0 e1 e2 e3 -> "if0" <> parens [pp e1, pp e2, pp e3]
     e `Ann` t -> pp e <+> ":" <+> pp t
-
-
--- | p
-data Prim
-  = -- | +
-    Add
-  | -- | -
-    Sub
-  | -- | *
-    Mul
-
-
-deriving stock instance Eq Prim
-
-
-deriving stock instance Show Prim
-
-
-instance PP.Pretty Prim where
-  pretty = \case
-    Add -> "+"
-    Sub -> "-"
-    Mul -> "*"

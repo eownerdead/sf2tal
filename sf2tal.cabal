@@ -26,6 +26,7 @@ common common
     StrictData,
     TemplateHaskell,
     TypeFamilies,
+    ViewPatterns,
   ghc-options:
     -Wall
     -Wcompat
@@ -58,6 +59,7 @@ library sf2tal-lib
   exposed-modules:
     SF2TAL,
     SF2TAL.Utils,
+    SF2TAL.Plate,
     SF2TAL.Name,
     SF2TAL.PP,
     SF2TAL.Uniq,

@@ -88,7 +88,7 @@ aVal = \case
     pure $ Pack (aTy t') v' (aTy t'')
   v@(Tuple vs) -> do
     let n = length vs
-    let ts = fmap (aTy . ty) vs
+    let ts = fmap (aTy . tyOf) vs
     vs' <- traverse aVal vs
 
     y0 <- freshName
@@ -101,5 +101,5 @@ aVal = \case
           | v' <- vs'
           | i <- [1 ..]
           ]
-    pure $ Var (last (y0 : ys)) (aTy $ ty v)
+    pure $ Var (last (y0 : ys)) (aTy $ tyOf v)
   v@Abs{} -> errorC v

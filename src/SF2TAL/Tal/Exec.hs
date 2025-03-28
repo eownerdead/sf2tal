@@ -86,8 +86,8 @@ exec ths (Prog hs rs is) = do
     exec' :: Exec es => Seq -> Eff es Seq
     exec' (Halt t) = pure $ Halt t
     exec' is' = do
-      p <- getProg is'
-      ths' <- use tHeap
+      _p <- getProg is'
+      _ths' <- use tHeap
       -- ckProg ths' p
       exec' =<< step is'
 

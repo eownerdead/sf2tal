@@ -64,7 +64,7 @@ cExp = \case
           Pack
             tEnv
             (Tuple [Var zCode tRawCode `appT` fmap TVar bs, vEnv])
-            <$> cTy (ty v)
+            <$> cTy (tyOf v)
         pure (zCode, vCode, pack)
       v -> errorK $ "value of LetRec is not Abs" <> docStr (pp v)
     let pack e = M.foldrWithKey (\x (_, _, v) -> Let (Bind x v)) e xs'
@@ -77,7 +77,7 @@ cExp = \case
     zEnv <- freshName
     ts' <- traverse cTy ts
     vs' <- traverse cVal vs
-    cTy (ty v) >>= \case
+    cTy (tyOf v) >>= \case
       TExists b (TTuple [(tCode, _), (b', _)]) -> do
         when (TVar b /= b') do error "cExp: b /= b'"
         pure $
