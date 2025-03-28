@@ -10,11 +10,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1739388142,
-        "narHash": "sha256-MmLc3Ex4C6fYETvboqIi0jaI26hmy5yPgyQLH2RayaQ=",
+        "lastModified": 1743188525,
+        "narHash": "sha256-lc2qmzQecOiwVclEfU0N7Ea/o/UGTl2aKz4T+XuCpso=",
         "ref": "refs/heads/main",
-        "rev": "4a9f6c31069aa874415e5365d192bb2ac38505e1",
-        "revCount": 2,
+        "rev": "2238294a9b2b181a91c8a7eb9a4b3da9be86bb38",
+        "revCount": 4,
         "type": "git",
         "url": "https://codeberg.org/eownerdead/effectful-microlens"
       },

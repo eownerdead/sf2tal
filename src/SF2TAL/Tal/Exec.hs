@@ -12,7 +12,6 @@ where
 
 import Control.Exception.Safe
 import Effectful
-import Effectful.State.Static.Local
 import Effectful.State.Static.Local.Microlens
 import GHC.Stack
 import Lens.Micro.Platform hiding (preuse, use, (%=), (?=))

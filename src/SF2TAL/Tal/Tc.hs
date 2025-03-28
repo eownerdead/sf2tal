@@ -4,7 +4,6 @@ import Control.Exception.Safe
 import Control.Monad
 import Data.Foldable
 import Effectful
-import Effectful.Reader.Static
 import Effectful.Reader.Static.Microlens
 import GHC.Stack
 import Lens.Micro.Platform hiding (preview, view)

@@ -6,7 +6,6 @@ import Data.Set qualified as S
 import Data.Text qualified as T
 import Effectful
 import Effectful.Labeled
-import Effectful.Reader.Static
 import Effectful.Reader.Static.Microlens
 import Effectful.Writer.Static.Local
 import Lens.Micro.Platform hiding (preview, view)

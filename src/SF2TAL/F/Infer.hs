@@ -10,9 +10,7 @@ import Data.Map qualified as M
 import Data.Set qualified as S
 import Data.Text qualified as T
 import Effectful
-import Effectful.Reader.Static
 import Effectful.Reader.Static.Microlens
-import Effectful.State.Static.Local
 import Effectful.State.Static.Local.Microlens
 import GHC.Stack
 import Lens.Micro.Platform hiding (preuse, preview, (.=))
