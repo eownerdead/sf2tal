@@ -21,12 +21,14 @@ module SF2TAL.Tal.Tal
 where
 
 import Data.Map qualified as M
+import Data.String
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.F (Prim (..))
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Utils
+import Text.Megaparsec (SourcePos, sourcePosPretty)
 
 
 type TName = Int
@@ -224,6 +226,7 @@ data Inst where
   St :: R -> Int -> R -> Inst
   -- | unpack[a, rd], v
   Unpack :: TName -> R -> Val -> Inst
+  Loc :: SourcePos -> Inst
 
 
 deriving stock instance Show Inst
@@ -248,6 +251,7 @@ instance PP.Pretty Inst where
     St rd i rs -> ppInst "st" [pp rd <> brackets [pp i], pp rs]
     Unpack a rd v ->
       PP.hsep $ PP.punctuate "," ["unpack" <> brackets [pp a, pp rd], pp v]
+    Loc l -> "#" <+> fromString (sourcePosPretty l)
 
 
 instance TSubst Inst where

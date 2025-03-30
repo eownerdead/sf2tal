@@ -63,6 +63,7 @@ instance Size Tm where
     App v _ts vs -> 1 + size v + sum (fmap size vs)
     If0 v e1 e2 -> 1 + size v + size e1 + size e2
     Halt v -> 1 + size v
+    Loc _ e -> size e
     _ -> error "No need"
 
 

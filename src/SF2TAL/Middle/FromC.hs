@@ -54,7 +54,8 @@ aExp = \case
   e@App{} -> errorC e
   If0 v e1 e2 -> let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
   Halt v -> let' $ Halt <$> aVal v
-  _ -> errorC ("LetRec in non top-level" :: String)
+  Loc l e -> Loc l <$> aExp e
+  LetRec{} -> errorC ("LetRec in non top-level" :: String)
 
 
 aDec :: A es => Decl -> Eff es ()

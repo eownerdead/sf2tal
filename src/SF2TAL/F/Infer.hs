@@ -318,6 +318,9 @@ inferRho = \case
     e' <- checkSigma e t
     (t', f) <- inferInstSigma t
     pure (t', f e')
+  Loc l e -> do
+    (t, e') <- inferRho e
+    pure (t, Loc l e')
 
 
 checkRho :: Tc es => Tm -> Ty -> Eff es Tm
@@ -325,6 +328,7 @@ checkRho e tExpect = case e of
   Abs x _t e' -> do
     (t1, t2) <- unifyFun tExpect
     local (at x ?~ t1) do Abs x (Just t1) <$> checkRho e' t2
+  Loc l e' -> Loc l <$> checkRho e' tExpect
   _ -> do
     (actual, e') <- inferRho e
     f <- checkInstSigma actual tExpect

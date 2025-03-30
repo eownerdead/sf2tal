@@ -25,6 +25,7 @@ import Control.Exception (assert)
 import Data.Functor.Const
 import Data.Map qualified as M
 import Data.Set qualified as S
+import Data.String (fromString)
 import Effectful
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
@@ -33,6 +34,7 @@ import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
 import SF2TAL.Uniq
+import Text.Megaparsec (SourcePos, sourcePosPretty)
 
 
 type TName = Int
@@ -95,6 +97,7 @@ data Tm where
   If0 :: Val -> Tm -> Tm -> Tm
   -- | K, C, H, A: halt v
   Halt :: Val -> Tm
+  Loc :: SourcePos -> Tm -> Tm
 
 
 deriving stock instance Show Ty
@@ -163,6 +166,7 @@ instance Multiplate Plate where
         App v ts vs -> App <$>: v <*> traverse (getProj p) ts <*> traverse (getProj p) vs
         If0 v e1 e2 -> If0 <$>: v <*>: e1 <*>: e2
         Halt v -> Halt <$>: v
+        Loc l e -> Loc l <$>: e
 
 
   mkPlate f = Plate (f pTy) (f pVal) (f pTm)
@@ -352,3 +356,4 @@ instance PP.Pretty Tm where
         <> parens (fmap pp xs)
     If0 v e1 e2 -> "if0" <> parens [pp v, pp e1, pp e2]
     Halt v -> nest $ PP.sep ["halt", parens [pp v]]
+    Loc l e -> parens [pp e <+> fromString (sourcePosPretty l)]

@@ -14,12 +14,14 @@ where
 
 import Data.Map qualified as M
 import Data.Set qualified as S
+import Data.String (fromString)
 import Data.Text qualified as T
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
+import Text.Megaparsec (SourcePos, sourcePosPretty)
 
 
 type TName = T.Text
@@ -75,6 +77,7 @@ data Tm where
   If0 :: Tm -> Tm -> Tm -> Tm
   -- | e: t
   Ann :: Tm -> Ty -> Tm
+  Loc :: SourcePos -> Tm -> Tm
 
 
 deriving stock instance Show Ty
@@ -144,6 +147,7 @@ instance Multiplate Plate where
         Arith op e1 e2 -> Arith op <$>: e1 <*>: e2
         If0 e1 e2 e3 -> If0 <$>: e1 <*>: e2 <*>: e3
         e `Ann` t -> Ann <$>: e <*>: t
+        Loc l e -> Loc l <$>: e
 
 
   mkPlate f = Plate (f pTy) (f pTm)
@@ -174,6 +178,7 @@ tyOf = \case
   Arith{} -> TInt
   If0 _ e _ -> tyOf e
   _ `Ann` t -> t
+  Loc _ e -> tyOf e
 
 
 ftv :: Ty -> S.Set TName
@@ -247,3 +252,4 @@ instance PP.Pretty Tm where
     Arith p e1 e2 -> ppSimp e1 <+> pp p <+> ppSimp e2
     If0 e1 e2 e3 -> "if0" <> parens [pp e1, pp e2, pp e3]
     e `Ann` t -> pp e <+> ":" <+> pp t
+    Loc l e -> parens [pp e <+> fromString (sourcePosPretty l)]

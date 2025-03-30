@@ -121,15 +121,18 @@ letBody = (,) <$> ident <* sym "=" <*> tm
 
 tm :: Parser Tm
 tm =
-  label "expression" . choice $
-    [ LetRec
-        <$> (kw "let" *> (M.fromList <$> sepEndBy letBody (sym ";")))
-        <* kw "in"
-        <*> tm
-    , Abs <$> (sym "\\" *> ident) <*> optional (sym ":" *> ty) <* sym "." <*> tm
-    , If0 <$> (kw "if0" *> tm) <*> (kw "then" *> tm) <*> (kw "else" *> tm)
-    , ops
-    ]
+  Loc
+    <$> getSourcePos
+    <*> choice
+      [ LetRec
+          <$> (kw "let" *> (M.fromList <$> sepEndBy letBody (sym ";")))
+          <* kw "in"
+          <*> tm
+      , Abs <$> (sym "\\" *> ident) <*> optional (sym ":" *> ty) <* sym "." <*> tm
+      , If0 <$> (kw "if0" *> tm) <*> (kw "then" *> tm) <*> (kw "else" *> tm)
+      , ops
+      ]
+    <?> "expression"
 
 
 parse :: T.Text -> Eff es Tm

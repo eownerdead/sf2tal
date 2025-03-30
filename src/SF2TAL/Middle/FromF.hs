@@ -71,6 +71,7 @@ kAbs = \case
     t' <- kCont $ F.tyOf e
     c <- freshName
     Abs [a'] [(c, t')] <$> kExp e \k' -> pure $ App (Var c t') [] [k']
+  F.Loc _ e -> kAbs e
   e -> error $ docStr $ "kAbs:" <+> pp e
 
 
@@ -124,4 +125,5 @@ kExp e k = case e of
       e2' <- kExp e2 k
       e3' <- kExp e3 k
       pure $ If0 x e2' e3'
+  F.Loc l e' -> Loc l <$> kExp e' k
   _ -> error $ docStr $ "kExp: " <> pp e

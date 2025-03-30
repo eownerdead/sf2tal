@@ -151,6 +151,7 @@ step (Seq i is) = case i of
         regFile . at rd ?= w
         pure $ tsubst a t is
       t -> err ["Unpacking non-packed value: " <> pp t, pp i]
+  Loc _ -> pure is
 step (Jmp v) = val v >>= \v' -> app v' id
   where
     app (Label l) k =

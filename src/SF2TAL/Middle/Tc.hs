@@ -84,6 +84,7 @@ ckTm' = \case
     _ <- ckTm' e2
     pure ()
   Halt v -> void $ ckVal v
+  Loc _ e -> ckTm' e
 
 
 ckDecl :: Tc ann es => Decl -> Eff es a -> Eff es a

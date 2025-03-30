@@ -199,3 +199,4 @@ tExp = \case
   M.Halt v -> do
     v' <- tVal v
     pure $ Mov (A 1) v' `Seq` Halt (tTy (M.tyOf v))
+  M.Loc l e -> Seq (Loc l) <$> tExp e

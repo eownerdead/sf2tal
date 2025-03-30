@@ -122,6 +122,7 @@ tySeq (Seq i is) = case i of
       TExists b t ->
         local (tRegFile . at rd ?~ tsubst b (TVar a) t) do tySeq is
       t -> err ["Unpacking non-existential value: " <+> pp t, pp i]
+  Loc _ -> pure ()
 tySeq (Jmp v) = do
   trs <- view tRegFile
   tyVal v >>= \case

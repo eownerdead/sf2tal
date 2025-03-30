@@ -91,6 +91,7 @@ cExp = \case
       t -> error $ "not TExists: " <> show t
   If0 v e1 e2 -> If0 <$> cVal v <*> cExp e1 <*> cExp e2
   Halt v -> Halt <$> cVal v
+  Loc l e -> Loc l <$> cExp e
 
 
 cDec :: C es => Decl -> Eff es Decl
