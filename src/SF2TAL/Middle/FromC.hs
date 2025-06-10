@@ -3,7 +3,6 @@ module SF2TAL.Middle.FromC
   )
 where
 
-import Control.Monad
 import Effectful
 import Effectful.Writer.Static.Local
 import Lens.Micro.Platform
