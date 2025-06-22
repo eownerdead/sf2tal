@@ -47,8 +47,8 @@ cExp = \case
     let fvs = M.toList $ fv $ LetRec xs e1
     vEnv <- Tuple <$> mapM (\(y, s) -> Var y <$> cTy s) fvs
     tEnv <- tTuple <$> traverse (cTy . snd) fvs
-    zEnv <- freshName
-    xs' <- forM xs \case
+    zEnv <- Name "zEnv" <$> fresh
+    xs' <- (`M.traverseWithKey` xs) \(Name x _) -> \case
       v@(Abs as xs' e) -> do
         e' <- cExp e
         ts' <- traverse (cTy . snd) xs'
@@ -59,7 +59,7 @@ cExp = \case
                 (k e')
                 (zip [1 ..] $ fmap fst fvs)
         let tRawCode = TFix (bs <> as) (tEnv : ts')
-        zCode <- freshName
+        zCode <- Name (x <> "zCode") <$> fresh
         pack <-
           Pack
             tEnv
@@ -71,10 +71,10 @@ cExp = \case
     forM_ xs' \(zCode, vCode, _) -> tell $ M.singleton zCode (vCode pack)
     pack <$> cExp e1
   App v ts vs -> do
-    z <- freshName
+    z <- Name "z" <$> fresh
     v' <- cVal v
-    zCode <- freshName
-    zEnv <- freshName
+    zCode <- Name "zCode" <$> fresh
+    zEnv <- Name "zEnv" <$> fresh
     ts' <- traverse cTy ts
     vs' <- traverse cVal vs
     cTy (tyOf v) >>= \case

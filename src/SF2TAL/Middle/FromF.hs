@@ -52,7 +52,7 @@ kProg v = evalState mempty do
 -- η-expansion
 expand :: K es => (Val -> Eff es Tm) -> Ty -> (Val -> Eff es Tm) -> Eff es Tm
 expand k t k' = do
-  c <- freshName
+  c <- Name "k" <$> fresh
   kk <- k $ Var c t
   x <- freshName
   LetRec (M.fromList [(x, Abs [] [(c, t)] kk)]) <$> k' (Var x $ TFix [] [t])
@@ -63,13 +63,13 @@ kAbs = \case
   F.Abs x1 (Just t) e -> do
     t1' <- kTy t
     t2' <- kCont (F.tyOf e)
-    c <- freshName
+    c <- Name "k" <$> fresh
     Abs [] [(x1, t1'), (c, t2')] <$> kExp e \k' ->
       pure $ App (Var c t2') [] [k']
   F.AbsT a e -> do
     a' <- freshen a
     t' <- kCont $ F.tyOf e
-    c <- freshName
+    c <- Name "k" <$> fresh
     Abs [a'] [(c, t')] <$> kExp e \k' -> pure $ App (Var c t') [] [k']
   F.Loc _ e -> kAbs e
   e -> error $ docStr $ "kAbs:" <+> pp e

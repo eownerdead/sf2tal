@@ -61,12 +61,11 @@ tProg p = do
 tProg' :: Tal es => M.Tm -> Eff es Seq
 tProg' = \case
   M.LetRec xs e -> do
-    vs <- traverse (const freshName) xs
-    local (vals .~ fmap Label vs) do
-      hs' <- traverse tHVal $ M.mapKeys (vs M.!) xs
+    local (vals .~ M.mapWithKey (\k _ -> Label k) xs) do
+      hs' <- traverse tHVal xs
       is <- tExp e
       labeled @"heaps" $ tell hs'
-      labeled @"tHeap" $ tell $ fmap (tTy . M.tyOf) $ M.mapKeys (vs M.!) xs
+      labeled @"tHeap" $ tell $ fmap (tTy . M.tyOf) xs
       pure is
   _ -> error "Top-level is not LetRec"
 
@@ -187,7 +186,7 @@ tExp = \case
             <> [Mov (A r) (Reg r') | r <- [(1 :: Int) ..] | r' <- rs]
   M.If0 v e1 e2 -> do
     r <- R <$> fresh
-    l <- freshName
+    l <- Name "else" <$> fresh
     is1 <- tExp e1
     is2 <- tExp e2
     v' <- tVal v

@@ -9,6 +9,7 @@ import Lens.Micro.Platform
 import SF2TAL.Middle.Middle
 import SF2TAL.Name
 import SF2TAL.Uniq
+import SF2TAL.Utils
 
 
 type A es = (Uniq :> es, Writer [Decl] :> es)
@@ -91,8 +92,8 @@ aVal = \case
     let ts = fmap (aTy . tyOf) vs
     vs' <- traverse aVal vs
 
-    y0 <- freshName
-    ys <- replicateM n freshName
+    y0 <- Name "y0" <$> fresh
+    ys <- traverse (\i -> Name ("y" <> int2Text i) <$> fresh) [0 .. (n - 1)]
     tell $
       Malloc y0 ts
         : [ Update y (Var y' $ tTupleInitedToN (i - 1) ts) i v'

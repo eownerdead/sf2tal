@@ -76,6 +76,6 @@ run s = runUniq do
 
 
 main :: IO ()
-main = runEff $ runLogStderr (const False) do
+main = runEff $ runLogStderr (const True) do
   _ <- run =<< liftIO T.getContents
   pure ()

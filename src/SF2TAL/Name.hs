@@ -24,7 +24,7 @@ deriving stock instance Show Name
 
 
 instance PP.Pretty Name where
-  pretty Name{name, uniq} = pp name <> "@" <> pp uniq
+  pretty Name{name, uniq} = pp name <> "." <> pp uniq
 
 
 freshName :: Uniq :> es => Eff es Name
