@@ -1,5 +1,5 @@
 module SF2TAL.Name
-  ( Name (..)
+  ( Name_ (..)
   , freshName
   )
 where
@@ -11,21 +11,21 @@ import SF2TAL.PP
 import SF2TAL.Uniq
 
 
-data Name = Name {name :: T.Text, uniq :: Int}
+data Name_ sort = Name {name :: T.Text, uniq :: Int}
 
 
-deriving stock instance Eq Name
+deriving stock instance Eq (Name_ s)
 
 
-deriving stock instance Ord Name
+deriving stock instance Ord (Name_ s)
 
 
-deriving stock instance Show Name
+deriving stock instance Show (Name_ s)
 
 
-instance PP.Pretty Name where
+instance PP.Pretty (Name_ s) where
   pretty Name{name, uniq} = pp name <> "." <> pp uniq
 
 
-freshName :: Uniq :> es => Eff es Name
+freshName :: Uniq :> es => Eff es (Name_ s)
 freshName = Name "" <$> fresh

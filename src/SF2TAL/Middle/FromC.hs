@@ -29,33 +29,32 @@ aTy :: Ty -> Ty
 aTy = \case
   TVar a -> TVar a
   TInt -> TInt
-  TFix as ts -> TFix as (fmap aTy ts)
+  TFix as ts t -> TFix as (fmap aTy ts) (aTy t)
   TTuple ts -> TTuple $ fmap (_1 %~ aTy) ts
   TExists a t -> TExists a $ aTy t
 
 
 aProg :: Uniq :> es => Tm -> Eff es Tm
 aProg = \case
-  LetRec xs e -> LetRec <$> traverse aHval xs <*> aExp e
+  Let (Rec xs) e -> (Let . Rec <$> traverse aHval xs) <*> aExp e
   _ -> errorC ("Top-level is not LetRec" :: String)
 
 
-aHval :: Uniq :> es => Val -> Eff es Val
+aHval :: Uniq :> es => Abs -> Eff es Abs
 aHval = \case
-  Abs as xs e ->
-    Abs as (xs <&> _2 %~ aTy) <$> aExp e
-  v -> error $ "unannotated: " <> show v
+  Abs as xs k kt e ->
+    Abs as (xs <&> _2 %~ aTy) k kt <$> aExp e
 
 
 aExp :: Uniq :> es => Tm -> Eff es Tm
 aExp = \case
   Let d e -> let' $ aDec d >> aExp e
-  App v [] vs -> let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs
+  AppK k v -> let' $ AppK k <$> aVal v
+  App v [] vs k -> let' $ App <$> aVal v <*> pure [] <*> traverse aVal vs <*> pure k
   e@App{} -> errorC e
-  If0 v e1 e2 -> let' $ If0 <$> aVal v <*> aExp e1 <*> aExp e2
+  If0 v e1 e2 -> let' $ If0 <$> aVal v <*> pure e1 <*> pure e2
   Halt v -> let' $ Halt <$> aVal v
   Loc l e -> Loc l <$> aExp e
-  LetRec{} -> errorC ("LetRec in non top-level" :: String)
 
 
 aDec :: A es => Decl -> Eff es ()
@@ -63,6 +62,9 @@ aDec = \case
   Bind x v -> do
     v' <- aVal v
     tell [Bind x v']
+  BindK x k t e -> do
+    e' <- aExp e
+    tell [BindK x k t e']
   At x i v -> do
     v' <- aVal v
     tell [At x i v']
@@ -73,6 +75,7 @@ aDec = \case
   Unpack a x v -> do
     v' <- aVal v
     tell [Unpack a x v']
+  d@Rec{} -> errorC d
   d@Malloc{} -> errorC d
   d@Update{} -> errorC d
 
@@ -103,4 +106,3 @@ aVal = \case
           | i <- [1 ..]
           ]
     pure $ Var (last (y0 : ys)) (aTy $ tyOf v)
-  v@Abs{} -> errorC v

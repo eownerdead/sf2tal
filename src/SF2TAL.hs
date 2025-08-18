@@ -1,31 +1,27 @@
 module SF2TAL where
 
+import Data.ByteString.Lazy.Char8 qualified as C
 import Data.Text qualified as T
+import Data.Text.Foreign qualified as T
 import Data.Text.IO qualified as T
 import Effectful
-import Prettyprinter qualified as PP
+import Foreign.C.String
+import Foreign.Ptr
+import LLVM.FFI.Analysis qualified as L
+import LLVM.FFI.BitWriter qualified as L
+import LLVM.FFI.Core qualified as L
+import Lens.Micro.Platform
 import SF2TAL.F qualified as F
+import SF2TAL.Llvm qualified as L
 import SF2TAL.Middle qualified as M
-import SF2TAL.Middle.Opt qualified as M
 import SF2TAL.PP
-import SF2TAL.Tal qualified as Tal
 import SF2TAL.Uniq
 import SF2TAL.Utils
+import System.Process.Typed qualified as P
+import UnliftIO
 
 
-iter :: (Uniq :> es, Log :> es) => Int -> M.Tm -> Eff es M.Tm
-iter n k
-  | n == 0 = pure k
-  | otherwise = do
-      logMsg Info $ "Optimising lambda K (" <> int2Text n <> ")"
-      k' <- M.simp k
-      logMsg Debug $ docText $ pp k'
-      logMsg Info $ "Verifying optimising lambda K (" <> int2Text n <> ")"
-      M.ckTm k'
-      iter (n - 1) k'
-
-
-compile :: (Uniq :> es, Log :> es) => T.Text -> Eff es (Tal.Prog, Tal.THeap)
+compile :: (IOE :> es, Uniq :> es, Log :> es) => T.Text -> Eff es L.ModuleRef
 compile s = do
   logMsg Info "Parsing"
   e <- F.parse s
@@ -43,11 +39,8 @@ compile s = do
   logMsg Info "Verifying lambda K"
   M.ckTm k
 
-  logMsg Info "Optimising lambda K"
-  k' <- iter 5 k
-
   logMsg Info "Converting to lambda C"
-  c <- M.cProg k'
+  c <- M.cProg k
   logMsg Debug $ docText $ pp c
   logMsg Info "Verifying lambda C"
   M.ckTm c
@@ -58,24 +51,31 @@ compile s = do
   logMsg Info "Verifying to lambda A"
   M.ckTm a
 
-  logMsg Info "Converting to TAL"
-  (tal, ths) <- Tal.tProg a
-  logMsg Debug $ docText $ PP.vsep [pp tal, ppMap ":" ths]
-  logMsg Info "Verifying to TAL"
-  Tal.ckProg ths tal
-  pure (tal, ths)
+  logMsg Info "Converting to LLVM IR"
+  m <- L.lProg a
+  liftIO $ L.dumpModule m
+  logMsg Info "Verifying LLVM IR"
+  _ <- liftIO $ L.verifyModule m 1 nullPtr
+  pure m
 
 
-run :: Log :> es => T.Text -> Eff es Tal.Val
+run :: (IOE :> es, Log :> es) => T.Text -> Eff es Int
 run s = runUniq do
-  (tal, ths) <- compile s
-  logMsg Info "Executing TAL"
-  v <- Tal.exec ths tal
-  logMsg Debug $ docText $ pp v
-  pure v
+  m <- compile s
+  logMsg Info "Compiling LLVM IR"
+  withSystemTempDirectory "sf2tal" \path -> do
+    _ <- liftIO $ withCString (path <> "/run.bc") $ L.writeBitcodeToFile m
+    P.runProcess_ do
+      P.shell $ "clang -o " <> path <> "/run " <> path <> "/run.bc rt/rt.c"
+    logMsg Info "Executing"
+    r <- P.readProcessStdout_ do P.shell $ path <> "/run"
+    case C.readInt r of
+      Just (i, _) -> pure i
+      Nothing -> error "Cannot read the output"
 
 
 main :: IO ()
-main = runEff $ runLogStderr (const True) do
-  _ <- run =<< liftIO T.getContents
+main = runEff $ runLogStderr (const True) $ runUniq do
+  m <- compile =<< liftIO T.getContents
+  _ <- liftIO $ T.withCString "main.bc" $ L.writeBitcodeToFile m
   pure ()

@@ -2,6 +2,7 @@
 
 module SF2TAL.F.F
   ( TName
+  , Name
   , Ty (..)
   , Prim (..)
   , Tm (..)
@@ -25,6 +26,12 @@ import Text.Megaparsec (SourcePos, sourcePosPretty)
 
 
 type TName = T.Text
+
+
+data U_
+
+
+type Name = Name_ U_
 
 
 -- | t

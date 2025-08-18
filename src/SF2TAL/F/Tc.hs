@@ -13,7 +13,6 @@ import GHC.Stack
 import Lens.Micro.Platform hiding (preview, view)
 import Prettyprinter qualified as PP
 import SF2TAL.F.F
-import SF2TAL.Name
 import SF2TAL.PP
 
 

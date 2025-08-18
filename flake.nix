@@ -57,6 +57,7 @@
               cabal-install
               hlint
               haskellPackages.fourmolu
+              llvmPackages_16.libllvm
             ];
           };
         };
