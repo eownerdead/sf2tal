@@ -1,0 +1,4 @@
+cat << EOF > ./llvm-raw-c.buildinfo
+ld-options: $(llvm-config --ldflags)
+extra-lib-dirs: $(llvm-config --libdir)
+EOF

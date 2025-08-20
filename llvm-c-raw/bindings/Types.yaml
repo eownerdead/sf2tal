@@ -1,0 +1,287 @@
+types:
+- headers: llvm-c/Types.h
+  cname: LLVMAttributeRef
+  module: LlvmC.Raw.Types
+  identifier: AttributeRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMBasicBlockRef
+  module: LlvmC.Raw.Types
+  identifier: BasicBlockRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMBinaryRef
+  module: LlvmC.Raw.Types
+  identifier: BinaryRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMBool
+  module: LlvmC.Raw.Types
+  identifier: Bool
+  instances:
+  - Eq
+  - Ord
+  - Enum
+  - Ix
+  - Bounded
+  - Read
+  - Show
+  - Bits
+  - FiniteBits
+  - Integral
+  - Num
+  - Real
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMBuilderRef
+  module: LlvmC.Raw.Types
+  identifier: BuilderRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: struct LLVMComdat
+  module: LlvmC.Raw.Types
+  identifier: Comdat
+- headers: llvm-c/Types.h
+  cname: LLVMComdatRef
+  module: LlvmC.Raw.Types
+  identifier: ComdatRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMContextRef
+  module: LlvmC.Raw.Types
+  identifier: ContextRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMDIBuilderRef
+  module: LlvmC.Raw.Types
+  identifier: DIBuilderRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMDbgRecordRef
+  module: LlvmC.Raw.Types
+  identifier: DbgRecordRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMDiagnosticInfoRef
+  module: LlvmC.Raw.Types
+  identifier: DiagnosticInfoRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMJITEventListenerRef
+  module: LlvmC.Raw.Types
+  identifier: JITEventListenerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMMemoryBufferRef
+  module: LlvmC.Raw.Types
+  identifier: MemoryBufferRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMMetadataRef
+  module: LlvmC.Raw.Types
+  identifier: MetadataRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMModuleProviderRef
+  module: LlvmC.Raw.Types
+  identifier: ModuleProviderRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMModuleRef
+  module: LlvmC.Raw.Types
+  identifier: ModuleRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMNamedMDNodeRef
+  module: LlvmC.Raw.Types
+  identifier: NamedMDNodeRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueAttributeRef
+  module: LlvmC.Raw.Types
+  identifier: OpaqueAttributeRef
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueBasicBlock
+  module: LlvmC.Raw.Types
+  identifier: OpaqueBasicBlock
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueBinary
+  module: LlvmC.Raw.Types
+  identifier: OpaqueBinary
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueBuilder
+  module: LlvmC.Raw.Types
+  identifier: OpaqueBuilder
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueContext
+  module: LlvmC.Raw.Types
+  identifier: OpaqueContext
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueDIBuilder
+  module: LlvmC.Raw.Types
+  identifier: OpaqueDIBuilder
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueDbgRecord
+  module: LlvmC.Raw.Types
+  identifier: OpaqueDbgRecord
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueDiagnosticInfo
+  module: LlvmC.Raw.Types
+  identifier: OpaqueDiagnosticInfo
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueJITEventListener
+  module: LlvmC.Raw.Types
+  identifier: OpaqueJITEventListener
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueMemoryBuffer
+  module: LlvmC.Raw.Types
+  identifier: OpaqueMemoryBuffer
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueMetadata
+  module: LlvmC.Raw.Types
+  identifier: OpaqueMetadata
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueModule
+  module: LlvmC.Raw.Types
+  identifier: OpaqueModule
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueModuleFlagEntry
+  module: LlvmC.Raw.Types
+  identifier: ModuleFlagEntry
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueModuleProvider
+  module: LlvmC.Raw.Types
+  identifier: OpaqueModuleProvider
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueNamedMDNode
+  module: LlvmC.Raw.Types
+  identifier: OpaqueNamedMDNode
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueOperandBundle
+  module: LlvmC.Raw.Types
+  identifier: OpaqueOperandBundle
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaquePassManager
+  module: LlvmC.Raw.Types
+  identifier: OpaquePassManager
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueType
+  module: LlvmC.Raw.Types
+  identifier: OpaqueType
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueUse
+  module: LlvmC.Raw.Types
+  identifier: OpaqueUse
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueValue
+  module: LlvmC.Raw.Types
+  identifier: OpaqueValue
+- headers: llvm-c/Types.h
+  cname: struct LLVMOpaqueValueMetadataEntry
+  module: LlvmC.Raw.Types
+  identifier: ValueMetadataEntry
+- headers: llvm-c/Types.h
+  cname: LLVMOperandBundleRef
+  module: LlvmC.Raw.Types
+  identifier: OperandBundleRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMPassManagerRef
+  module: LlvmC.Raw.Types
+  identifier: PassManagerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMTypeRef
+  module: LlvmC.Raw.Types
+  identifier: TypeRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMUseRef
+  module: LlvmC.Raw.Types
+  identifier: UseRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Types.h
+  cname: LLVMValueRef
+  module: LlvmC.Raw.Types
+  identifier: ValueRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable

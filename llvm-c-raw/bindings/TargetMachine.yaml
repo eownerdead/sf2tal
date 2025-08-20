@@ -1,0 +1,90 @@
+types:
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMCodeGenFileType
+  module: LlvmC.Raw.TargetMachine
+  identifier: CodeGenFileType
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMCodeGenOptLevel
+  module: LlvmC.Raw.TargetMachine
+  identifier: CodeGenOptLevel
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMCodeModel
+  module: LlvmC.Raw.TargetMachine
+  identifier: CodeModel
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMGlobalISelAbortMode
+  module: LlvmC.Raw.TargetMachine
+  identifier: GlobalISelAbortMode
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/TargetMachine.h
+  cname: struct LLVMOpaqueTargetMachine
+  module: LlvmC.Raw.TargetMachine
+  identifier: OpaqueTargetMachine
+- headers: llvm-c/TargetMachine.h
+  cname: struct LLVMOpaqueTargetMachineOptions
+  module: LlvmC.Raw.TargetMachine
+  identifier: OpaqueTargetMachineOptions
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMRelocMode
+  module: LlvmC.Raw.TargetMachine
+  identifier: RelocMode
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/TargetMachine.h
+  cname: struct LLVMTarget
+  module: LlvmC.Raw.TargetMachine
+  identifier: Target
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMTargetMachineOptionsRef
+  module: LlvmC.Raw.TargetMachine
+  identifier: TargetMachineOptionsRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMTargetMachineRef
+  module: LlvmC.Raw.TargetMachine
+  identifier: TargetMachineRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/TargetMachine.h
+  cname: LLVMTargetRef
+  module: LlvmC.Raw.TargetMachine
+  identifier: TargetRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable

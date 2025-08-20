@@ -12,8 +12,9 @@ import Effectful
 import Effectful.Reader.Static.Microlens
 import Effectful.State.Static.Local.Microlens
 import Foreign
-import LLVM.FFI.Core qualified as L
 import Lens.Micro.Platform hiding (preuse, preview, use, (%=), (?=))
+import LlvmC.Raw.Core qualified as L
+import LlvmC.Raw.Types qualified as L
 import SF2TAL.Middle
 import SF2TAL.PP
 import SF2TAL.Utils
@@ -47,13 +48,13 @@ type FunctionRef = L.ValueRef
 functionType :: Bool -> L.TypeRef -> [L.TypeRef] -> IO L.TypeRef
 functionType varargs tRet tParams =
   withArrayLen tParams \len ptr ->
-    L.functionType tRet ptr (fromIntegral len) (L.consBool varargs)
+    L.functionType tRet ptr (fromIntegral len) (L.Bool $ fromBool varargs)
 
 
 structType :: Bool -> [L.TypeRef] -> IO L.TypeRef
 structType packed' ts =
   withArrayLen ts \len ptr ->
-    L.structType ptr (fromIntegral len) (L.consBool packed')
+    L.structType ptr (fromIntegral len) (L.Bool $ fromBool packed')
 
 
 getParams :: FunctionRef -> IO [L.ValueRef]
@@ -153,13 +154,13 @@ lProg' m = \case
       _ <- flip M.traverseWithKey fs \x (Abs _as xs _k _tk e1) -> do
         let f = fs' M.! x
         bb <- liftIO $ T.withCString "entry" $ L.appendBasicBlock f
-        liftIO $ L.positionAtEnd b bb
+        liftIO $ L.positionBuilderAtEnd b bb
         xs' <- liftIO $ getParams f
         local (vars <>~ M.fromList (zip (fmap fst xs) xs')) $ lExp b e1
       t <- liftIO $ L.int64Type >>= \ti -> functionType False ti []
       f <- liftIO $ T.withCString "sf2talMain" \str -> L.addFunction m str t
       bb <- liftIO $ T.withCString "entry" $ L.appendBasicBlock f
-      liftIO $ L.positionAtEnd b bb
+      liftIO $ L.positionBuilderAtEnd b bb
       lExp b e
     pure ()
   _ -> error "Top-level is not LetRec"
@@ -174,7 +175,7 @@ lVal = \case
   IntLit i ->
     liftIO $
       L.int64Type >>= \t ->
-        L.constInt t (fromIntegral i) L.true
+        L.constInt t (fromIntegral i) (L.Bool 1)
   AppT v _ -> lVal v
   Pack _t1 v _t2 -> lVal v
   v -> error $ "not Val: " <> T.unpack (prettyText v)
@@ -190,7 +191,7 @@ lExp b = \case
       f <- liftIO $ L.getBasicBlockParent =<< L.getInsertBlock b
       bb <- liftIO . T.withCString (prettyText k) $ L.appendBasicBlock f
       local (conts . at k ?~ bb) do lExp b e
-      liftIO $ L.positionAtEnd b bb
+      liftIO $ L.positionBuilderAtEnd b bb
       t' <- lTy t
       preuse (phis . ix k) >>= \case
         Just (M.toList -> [(_, v)]) -> local (vars . at x ?~ v) do lExp b e1
@@ -208,7 +209,7 @@ lExp b = \case
           i' <-
             liftIO $
               L.int64Type >>= \ti ->
-                L.constInt ti (fromIntegral $ i - 1) L.true
+                L.constInt ti (fromIntegral $ i - 1) (L.Bool 1)
           v'' <- liftIO $ buildGEP2 b t v' [i'] ""
           tv'' <- lTy tv
           v''' <-
@@ -238,7 +239,7 @@ lExp b = \case
       i' <-
         liftIO $
           L.int64Type >>= \ti ->
-            L.constInt ti (fromIntegral $ i - 1) L.true
+            L.constInt ti (fromIntegral $ i - 1) (L.Bool 1)
       v1'' <- liftIO $ buildGEP2 b t v1' [i'] ""
       v2' <- lVal v2
       _ <- liftIO $ L.buildStore b v2' v1''
@@ -265,11 +266,11 @@ lExp b = \case
     phis . at k %= (Just . M.insert bbCur v'' . fromMaybe mempty)
   If0 v k1 k2 -> do
     v' <- lVal v
-    i0 <- liftIO $ L.int64Type >>= \ti -> L.constInt ti 0 L.true
+    i0 <- liftIO $ L.int64Type >>= \ti -> L.constInt ti 0 (L.Bool 1)
     cmp <-
       liftIO $
         T.withCString "cmp" $
-          L.buildICmp b (L.fromIntPredicate L.IntEQ) v' i0
+          L.buildICmp b L.IntEQ v' i0
     bb1 <- fromJust <$> preview (conts . ix k1)
     bb2 <- fromJust <$> preview (conts . ix k2)
     _ <- liftIO $ L.buildCondBr b cmp bb1 bb2

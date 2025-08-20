@@ -1,0 +1,37 @@
+types:
+- headers: llvm-c/Target.h
+  cname: enum LLVMByteOrdering
+  module: LlvmC.Raw.Target
+  identifier: ByteOrdering
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/Target.h
+  cname: struct LLVMOpaqueTargetData
+  module: LlvmC.Raw.Target
+  identifier: OpaqueTargetData
+- headers: llvm-c/Target.h
+  cname: struct LLVMOpaqueTargetLibraryInfotData
+  module: LlvmC.Raw.Target
+  identifier: OpaqueTargetLibraryInfotData
+- headers: llvm-c/Target.h
+  cname: LLVMTargetDataRef
+  module: LlvmC.Raw.Target
+  identifier: TargetDataRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Target.h
+  cname: LLVMTargetLibraryInfoRef
+  module: LlvmC.Raw.Target
+  identifier: TargetLibraryInfoRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable

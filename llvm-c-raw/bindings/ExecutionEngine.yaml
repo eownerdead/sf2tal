@@ -1,0 +1,84 @@
+types:
+- headers: llvm-c/ExecutionEngine.h
+  cname: LLVMExecutionEngineRef
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: ExecutionEngineRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: LLVMGenericValueRef
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: GenericValueRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: struct LLVMMCJITCompilerOptions
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: MCJITCompilerOptions
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: LLVMMCJITMemoryManagerRef
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: MCJITMemoryManagerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: LLVMMemoryManagerAllocateCodeSectionCallback
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: MemoryManagerAllocateCodeSectionCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: LLVMMemoryManagerAllocateDataSectionCallback
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: MemoryManagerAllocateDataSectionCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: LLVMMemoryManagerDestroyCallback
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: MemoryManagerDestroyCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: LLVMMemoryManagerFinalizeMemoryCallback
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: MemoryManagerFinalizeMemoryCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/ExecutionEngine.h
+  cname: struct LLVMOpaqueExecutionEngine
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: OpaqueExecutionEngine
+- headers: llvm-c/ExecutionEngine.h
+  cname: struct LLVMOpaqueGenericValue
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: OpaqueGenericValue
+- headers: llvm-c/ExecutionEngine.h
+  cname: struct LLVMOpaqueMCJITMemoryManager
+  module: LlvmC.Raw.ExecutionEngine
+  identifier: OpaqueMCJITMemoryManager

@@ -1,0 +1,583 @@
+types:
+- headers: llvm-c/Orc.h
+  cname: LLVMJITEvaluatedSymbol
+  module: LlvmC.Raw.Orc
+  identifier: JITEvaluatedSymbol
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMJITSymbolFlags
+  module: LlvmC.Raw.Orc
+  identifier: JITSymbolFlags
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMJITSymbolGenericFlags
+  module: LlvmC.Raw.Orc
+  identifier: JITSymbolGenericFlags
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMJITSymbolTargetFlags
+  module: LlvmC.Raw.Orc
+  identifier: JITSymbolTargetFlags
+  instances:
+  - Eq
+  - Ord
+  - Enum
+  - Ix
+  - Bounded
+  - Read
+  - Show
+  - Bits
+  - FiniteBits
+  - Integral
+  - Num
+  - Real
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCAPIDefinitionGeneratorTryToGenerateFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcCAPIDefinitionGeneratorTryToGenerateFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCDependenceMapPair
+  module: LlvmC.Raw.Orc
+  identifier: OrcCDependenceMapPair
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCDependenceMapPairs
+  module: LlvmC.Raw.Orc
+  identifier: OrcCDependenceMapPairs
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCJITDylibSearchOrder
+  module: LlvmC.Raw.Orc
+  identifier: OrcCJITDylibSearchOrder
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCJITDylibSearchOrderElement
+  module: LlvmC.Raw.Orc
+  identifier: OrcCJITDylibSearchOrderElement
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCLookupSet
+  module: LlvmC.Raw.Orc
+  identifier: OrcCLookupSet
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCLookupSetElement
+  module: LlvmC.Raw.Orc
+  identifier: OrcCLookupSetElement
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolAliasMapEntry
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolAliasMapEntry
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolAliasMapPair
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolAliasMapPair
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolAliasMapPairs
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolAliasMapPairs
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolDependenceGroup
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolDependenceGroup
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolFlagsMapPair
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolFlagsMapPair
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolFlagsMapPairs
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolFlagsMapPairs
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolMapPair
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolMapPair
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolMapPairs
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolMapPairs
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcCSymbolsList
+  module: LlvmC.Raw.Orc
+  identifier: OrcCSymbolsList
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcDefinitionGeneratorRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcDefinitionGeneratorRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcDisposeCAPIDefinitionGeneratorFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcDisposeCAPIDefinitionGeneratorFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcDumpObjectsRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcDumpObjectsRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcErrorReporterFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcErrorReporterFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcExecutionSessionLookupHandleResultFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcExecutionSessionLookupHandleResultFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcExecutionSessionRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcExecutionSessionRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcExecutorAddress
+  module: LlvmC.Raw.Orc
+  identifier: OrcExecutorAddress
+  instances:
+  - Eq
+  - Ord
+  - Enum
+  - Ix
+  - Bounded
+  - Read
+  - Show
+  - Bits
+  - FiniteBits
+  - Integral
+  - Num
+  - Real
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcGenericIRModuleOperationFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcGenericIRModuleOperationFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcIRTransformLayerRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcIRTransformLayerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcIRTransformLayerTransformFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcIRTransformLayerTransformFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcIndirectStubsManagerRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcIndirectStubsManagerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcJITDylibLookupFlags
+  module: LlvmC.Raw.Orc
+  identifier: OrcJITDylibLookupFlags
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcJITDylibRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcJITDylibRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcJITTargetAddress
+  module: LlvmC.Raw.Orc
+  identifier: OrcJITTargetAddress
+  instances:
+  - Eq
+  - Ord
+  - Enum
+  - Ix
+  - Bounded
+  - Read
+  - Show
+  - Bits
+  - FiniteBits
+  - Integral
+  - Num
+  - Real
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcJITTargetMachineBuilderRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcJITTargetMachineBuilderRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcLazyCallThroughManagerRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcLazyCallThroughManagerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcLookupKind
+  module: LlvmC.Raw.Orc
+  identifier: OrcLookupKind
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcLookupStateRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcLookupStateRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcMaterializationResponsibilityRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcMaterializationResponsibilityRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcMaterializationUnitDestroyFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcMaterializationUnitDestroyFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcMaterializationUnitDiscardFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcMaterializationUnitDiscardFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcMaterializationUnitMaterializeFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcMaterializationUnitMaterializeFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcMaterializationUnitRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcMaterializationUnitRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcObjectLayerRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcObjectLayerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcObjectLinkingLayerRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcObjectLinkingLayerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcObjectTransformLayerRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcObjectTransformLayerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcObjectTransformLayerTransformFunction
+  module: LlvmC.Raw.Orc
+  identifier: OrcObjectTransformLayerTransformFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueDefinitionGenerator
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueDefinitionGenerator
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueDumpObjects
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueDumpObjects
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueExecutionSession
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueExecutionSession
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueIRTransformLayer
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueIRTransformLayer
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueIndirectStubsManager
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueIndirectStubsManager
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueJITDylib
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueJITDylib
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueJITTargetMachineBuilder
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueJITTargetMachineBuilder
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueLazyCallThroughManager
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueLazyCallThroughManager
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueLookupState
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueLookupState
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueMaterializationResponsibility
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueMaterializationResponsibility
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueMaterializationUnit
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueMaterializationUnit
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueObjectLayer
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueObjectLayer
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueObjectLinkingLayer
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueObjectLinkingLayer
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueObjectTransformLayer
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueObjectTransformLayer
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueResourceTracker
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueResourceTracker
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueSymbolStringPool
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueSymbolStringPool
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueSymbolStringPoolEntry
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueSymbolStringPoolEntry
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueThreadSafeContext
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueThreadSafeContext
+- headers: llvm-c/Orc.h
+  cname: struct LLVMOrcOpaqueThreadSafeModule
+  module: LlvmC.Raw.Orc
+  identifier: OrcOpaqueThreadSafeModule
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcResourceTrackerRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcResourceTrackerRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcSymbolLookupFlags
+  module: LlvmC.Raw.Orc
+  identifier: OrcSymbolLookupFlags
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcSymbolPredicate
+  module: LlvmC.Raw.Orc
+  identifier: OrcSymbolPredicate
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcSymbolStringPoolEntryRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcSymbolStringPoolEntryRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcSymbolStringPoolRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcSymbolStringPoolRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcThreadSafeContextRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcThreadSafeContextRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Orc.h
+  cname: LLVMOrcThreadSafeModuleRef
+  module: LlvmC.Raw.Orc
+  identifier: OrcThreadSafeModuleRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable

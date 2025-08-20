@@ -1,0 +1,11 @@
+types:
+- headers: llvm-c/Comdat.h
+  cname: LLVMComdatSelectionKind
+  module: LlvmC.Raw.Comdat
+  identifier: ComdatSelectionKind
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable

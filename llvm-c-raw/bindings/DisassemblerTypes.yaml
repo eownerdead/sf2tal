@@ -1,0 +1,44 @@
+types:
+- headers: llvm-c/DisassemblerTypes.h
+  cname: LLVMDisasmContextRef
+  module: LlvmC.Raw.DisassemblerTypes
+  identifier: DisasmContextRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/DisassemblerTypes.h
+  cname: struct LLVMOpInfo1
+  module: LlvmC.Raw.DisassemblerTypes
+  identifier: OpInfo1
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/DisassemblerTypes.h
+  cname: LLVMOpInfoCallback
+  module: LlvmC.Raw.DisassemblerTypes
+  identifier: OpInfoCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/DisassemblerTypes.h
+  cname: struct LLVMOpInfoSymbol1
+  module: LlvmC.Raw.DisassemblerTypes
+  identifier: OpInfoSymbol1
+  instances:
+  - Eq
+  - Show
+  - Storable
+- headers: llvm-c/DisassemblerTypes.h
+  cname: LLVMSymbolLookupCallback
+  module: LlvmC.Raw.DisassemblerTypes
+  identifier: SymbolLookupCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable

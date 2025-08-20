@@ -60,7 +60,7 @@ library sf2tal-lib
     template-haskell ^>=2.21.0.0,
     megaparsec ^>=9.7.0,
     parser-combinators ^>=1.3.0,
-    llvm-ffi ^>=16.0,
+    llvm-c-raw,
   exposed-modules:
     SF2TAL,
     SF2TAL.Utils,

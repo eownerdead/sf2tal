@@ -1,0 +1,63 @@
+types:
+- headers: llvm-c/Object.h
+  cname: LLVMBinaryType
+  module: LlvmC.Raw.Object
+  identifier: BinaryType
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/Object.h
+  cname: LLVMObjectFileRef
+  module: LlvmC.Raw.Object
+  identifier: ObjectFileRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Object.h
+  cname: struct LLVMOpaqueObjectFile
+  module: LlvmC.Raw.Object
+  identifier: OpaqueObjectFile
+- headers: llvm-c/Object.h
+  cname: struct LLVMOpaqueRelocationIterator
+  module: LlvmC.Raw.Object
+  identifier: OpaqueRelocationIterator
+- headers: llvm-c/Object.h
+  cname: struct LLVMOpaqueSectionIterator
+  module: LlvmC.Raw.Object
+  identifier: OpaqueSectionIterator
+- headers: llvm-c/Object.h
+  cname: struct LLVMOpaqueSymbolIterator
+  module: LlvmC.Raw.Object
+  identifier: OpaqueSymbolIterator
+- headers: llvm-c/Object.h
+  cname: LLVMRelocationIteratorRef
+  module: LlvmC.Raw.Object
+  identifier: RelocationIteratorRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Object.h
+  cname: LLVMSectionIteratorRef
+  module: LlvmC.Raw.Object
+  identifier: SectionIteratorRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Object.h
+  cname: LLVMSymbolIteratorRef
+  module: LlvmC.Raw.Object
+  identifier: SymbolIteratorRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable

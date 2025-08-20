@@ -1,0 +1,23 @@
+types:
+- headers: llvm-c/Error.h
+  cname: LLVMErrorRef
+  module: LlvmC.Raw.Error
+  identifier: ErrorRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Error.h
+  cname: LLVMErrorTypeId
+  module: LlvmC.Raw.Error
+  identifier: ErrorTypeId
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Error.h
+  cname: struct LLVMOpaqueError
+  module: LlvmC.Raw.Error
+  identifier: OpaqueError

@@ -1,0 +1,10 @@
+types:
+- headers: llvm-c/ErrorHandling.h
+  cname: LLVMFatalErrorHandler
+  module: LlvmC.Raw.ErrorHandling
+  identifier: FatalErrorHandler
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable

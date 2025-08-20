@@ -1,0 +1,76 @@
+types:
+- headers: llvm-c/Remarks.h
+  cname: LLVMRemarkArgRef
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkArgRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Remarks.h
+  cname: LLVMRemarkDebugLocRef
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkDebugLocRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Remarks.h
+  cname: LLVMRemarkEntryRef
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkEntryRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Remarks.h
+  cname: struct LLVMRemarkOpaqueArg
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkOpaqueArg
+- headers: llvm-c/Remarks.h
+  cname: struct LLVMRemarkOpaqueDebugLoc
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkOpaqueDebugLoc
+- headers: llvm-c/Remarks.h
+  cname: struct LLVMRemarkOpaqueEntry
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkOpaqueEntry
+- headers: llvm-c/Remarks.h
+  cname: struct LLVMRemarkOpaqueParser
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkOpaqueParser
+- headers: llvm-c/Remarks.h
+  cname: struct LLVMRemarkOpaqueString
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkOpaqueString
+- headers: llvm-c/Remarks.h
+  cname: LLVMRemarkParserRef
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkParserRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Remarks.h
+  cname: LLVMRemarkStringRef
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkStringRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/Remarks.h
+  cname: enum LLVMRemarkType
+  module: LlvmC.Raw.Remarks
+  identifier: RemarkType
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable

@@ -1,0 +1,36 @@
+types:
+- headers: llvm-c/LLJIT.h
+  cname: LLVMOrcLLJITBuilderObjectLinkingLayerCreatorFunction
+  module: LlvmC.Raw.LLJIT
+  identifier: OrcLLJITBuilderObjectLinkingLayerCreatorFunction
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/LLJIT.h
+  cname: LLVMOrcLLJITBuilderRef
+  module: LlvmC.Raw.LLJIT
+  identifier: OrcLLJITBuilderRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/LLJIT.h
+  cname: LLVMOrcLLJITRef
+  module: LlvmC.Raw.LLJIT
+  identifier: OrcLLJITRef
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/LLJIT.h
+  cname: struct LLVMOrcOpaqueLLJIT
+  module: LlvmC.Raw.LLJIT
+  identifier: OrcOpaqueLLJIT
+- headers: llvm-c/LLJIT.h
+  cname: struct LLVMOrcOpaqueLLJITBuilder
+  module: LlvmC.Raw.LLJIT
+  identifier: OrcOpaqueLLJITBuilder

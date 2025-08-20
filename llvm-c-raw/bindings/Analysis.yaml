@@ -1,0 +1,11 @@
+types:
+- headers: llvm-c/Analysis.h
+  cname: LLVMVerifierFailureAction
+  module: LlvmC.Raw.Analysis
+  identifier: VerifierFailureAction
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable

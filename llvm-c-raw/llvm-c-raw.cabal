@@ -1,0 +1,55 @@
+cabal-version: 3.0
+name: llvm-c-raw
+version: 0.1.0.0
+build-type: Configure
+license: 0BSD
+license-files: LICENSE.md
+copyright: Copyright (C) 2024 by EOWNERDEAD <eownerdead@disroot.org>
+author: EOWNERDEAD
+maintainer: eownerdead@disroot.org
+homepage: https://codeberg.org/eownerdead/sf2tal
+
+common common
+  default-language: Haskell2010
+  build-depends:
+    base ^>=4.19.2.0,
+  default-extensions:
+    MagicHash,
+
+-- find . -type f -print | sed -E 's#^\./##; s#\.[^.]+$##; s#/#.#g'
+library
+  import: common
+  hs-source-dirs: src
+  build-depends:
+    hs-bindgen-runtime ^>=0.1.0,
+    c-expr ^>=0.1.0.0,
+  extra-libraries:
+    LLVM,
+    LTO,
+    Remarks,
+  exposed-modules:
+    LlvmC.Raw.DebugInfo,
+    LlvmC.Raw.TargetMachine,
+    LlvmC.Raw.Object,
+    LlvmC.Raw.Types,
+    -- LlvmC.Raw.LLJIT,
+    LlvmC.Raw.ExecutionEngine,
+    LlvmC.Raw.ErrorHandling,
+    LlvmC.Raw.DataTypes,
+    LlvmC.Raw.Comdat,
+    LlvmC.Raw.BitWriter,
+    LlvmC.Raw.Analysis,
+    LlvmC.Raw.Remarks,
+    LlvmC.Raw.Lto,
+    LlvmC.Raw.Core,
+    -- LlvmC.Raw.OrcEE,
+    -- LlvmC.Raw.LLJITUtils,
+    LlvmC.Raw.Linker,
+    LlvmC.Raw.IRReader,
+    -- LlvmC.Raw.Orc, -- TODO: undefined symbol: LLVMOrcCreateStaticLibrarySearchGeneratorForPath
+    LlvmC.Raw.Error,
+    LlvmC.Raw.Target,
+    LlvmC.Raw.Support,
+    LlvmC.Raw.BitReader,
+    LlvmC.Raw.DisassemblerTypes,
+    LlvmC.Raw.Disassembler,

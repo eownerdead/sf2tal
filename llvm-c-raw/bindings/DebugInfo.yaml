@@ -1,0 +1,77 @@
+types:
+- headers: llvm-c/DebugInfo.h
+  cname: LLVMDIFlags
+  module: LlvmC.Raw.DebugInfo
+  identifier: DIFlags
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/DebugInfo.h
+  cname: LLVMDWARFEmissionKind
+  module: LlvmC.Raw.DebugInfo
+  identifier: DWARFEmissionKind
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/DebugInfo.h
+  cname: LLVMDWARFMacinfoRecordType
+  module: LlvmC.Raw.DebugInfo
+  identifier: DWARFMacinfoRecordType
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/DebugInfo.h
+  cname: LLVMDWARFSourceLanguage
+  module: LlvmC.Raw.DebugInfo
+  identifier: DWARFSourceLanguage
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable
+- headers: llvm-c/DebugInfo.h
+  cname: LLVMDWARFTypeEncoding
+  module: LlvmC.Raw.DebugInfo
+  identifier: DWARFTypeEncoding
+  instances:
+  - Eq
+  - Ord
+  - Enum
+  - Ix
+  - Bounded
+  - Read
+  - Show
+  - Bits
+  - FiniteBits
+  - Integral
+  - Num
+  - Real
+  - Storable
+- headers: llvm-c/DebugInfo.h
+  cname: LLVMMetadataKind
+  module: LlvmC.Raw.DebugInfo
+  identifier: MetadataKind
+  instances:
+  - Eq
+  - Ord
+  - Enum
+  - Ix
+  - Bounded
+  - Read
+  - Show
+  - Bits
+  - FiniteBits
+  - Integral
+  - Num
+  - Real
+  - Storable

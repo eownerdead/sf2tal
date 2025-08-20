@@ -1,0 +1,11 @@
+types:
+- headers: llvm-c/Linker.h
+  cname: LLVMLinkerMode
+  module: LlvmC.Raw.Linker
+  identifier: LinkerMode
+  instances:
+  - Eq
+  - Ord
+  - Read
+  - Show
+  - Storable

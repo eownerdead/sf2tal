@@ -1,0 +1,3 @@
+packages:
+    .
+    llvm-c-raw

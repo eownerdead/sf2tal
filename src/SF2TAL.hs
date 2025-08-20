@@ -7,10 +7,10 @@ import Data.Text.IO qualified as T
 import Effectful
 import Foreign.C.String
 import Foreign.Ptr
-import LLVM.FFI.Analysis qualified as L
-import LLVM.FFI.BitWriter qualified as L
-import LLVM.FFI.Core qualified as L
-import Lens.Micro.Platform
+import LlvmC.Raw.Analysis qualified as L
+import LlvmC.Raw.BitWriter qualified as L
+import LlvmC.Raw.Core qualified as L
+import LlvmC.Raw.Types qualified as L
 import SF2TAL.F qualified as F
 import SF2TAL.Llvm qualified as L
 import SF2TAL.Middle qualified as M
@@ -55,7 +55,7 @@ compile s = do
   m <- L.lProg a
   liftIO $ L.dumpModule m
   logMsg Info "Verifying LLVM IR"
-  _ <- liftIO $ L.verifyModule m 1 nullPtr
+  _ <- liftIO $ L.verifyModule m L.PrintMessageAction nullPtr
   pure m
 
 

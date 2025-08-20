@@ -1,0 +1,19 @@
+types:
+- headers: llvm-c/OrcEE.h
+  cname: LLVMMemoryManagerCreateContextCallback
+  module: LlvmC.Raw.OrcEE
+  identifier: MemoryManagerCreateContextCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
+- headers: llvm-c/OrcEE.h
+  cname: LLVMMemoryManagerNotifyTerminatingCallback
+  module: LlvmC.Raw.OrcEE
+  identifier: MemoryManagerNotifyTerminatingCallback
+  instances:
+  - Eq
+  - Ord
+  - Show
+  - Storable
