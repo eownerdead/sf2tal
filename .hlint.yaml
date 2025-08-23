@@ -9,3 +9,5 @@
     enabled: true
 - ignore:
     name: "Use <$>"
+- ignore:
+    name: "Avoid lambda using `infix`"

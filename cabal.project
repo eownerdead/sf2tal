@@ -1,3 +1,4 @@
 packages:
     .
     llvm-c-raw
+    llvm

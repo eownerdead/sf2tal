@@ -1,0 +1,48 @@
+cabal-version: 3.0
+name: llvm
+version: 0.1.0.0
+build-type: Simple
+license: 0BSD
+license-files: LICENSE.md
+copyright: Copyright (C) 2024 by EOWNERDEAD <eownerdead@disroot.org>
+author: EOWNERDEAD
+maintainer: eownerdead@disroot.org
+homepage: https://codeberg.org/eownerdead/sf2tal
+
+common common
+  default-language: GHC2021
+  default-extensions:
+    BlockArguments,
+    DataKinds,
+    DerivingStrategies,
+    DerivingVia,
+    DuplicateRecordFields,
+    FunctionalDependencies,
+    LambdaCase,
+    MultiWayIf,
+    OverloadedStrings,
+    ParallelListComp,
+    PatternSynonyms,
+    StrictData,
+    TemplateHaskell,
+    TypeFamilies,
+    ViewPatterns,
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wmissing-deriving-strategies
+  build-depends:
+    base ^>=4.19.2.0,
+    safe-exceptions ^>=0.1.7.4,
+    text ^>=2.1.1,
+    effectful-core ^>=2.5.1.0,
+    effectful-plugin ^>=1.1.0.4,
+
+library
+  import: common
+  hs-source-dirs: src
+  build-depends:
+    llvm-c-raw,
+  exposed-modules:
+    LlvmC.Core,
