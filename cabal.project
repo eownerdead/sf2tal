@@ -1,4 +1,4 @@
 packages:
-    .
+    sf2tal
     llvm-c-raw
     llvm
