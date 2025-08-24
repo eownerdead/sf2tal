@@ -1,0 +1,7 @@
+let
+  isEven = \n. if n==0 then 1 else isOdd (n-1);
+  isOdd = \n.
+    if n<=0 then 0 else
+    if n==1 then 1 else isEven (n-1);
+in
+(isEven 10 == 1) + (isOdd 3 == 1) + (isEven 5 == 0) + (isOdd 12 == 0)

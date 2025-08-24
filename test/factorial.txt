@@ -1,4 +1,4 @@
 let
-  f = \n. if0 n then 1 else n * f (n-1);
+  f = \n. if n==1 then 1 else n * f (n-1);
 in
 f 6

@@ -139,14 +139,20 @@ lExp = \case
           local (vars . at x ?~ v''') do lExp e
       | otherwise ->
           error $ T.unpack $ "At: not TTuple, but " <> prettyText (tyOf v)
-    Arith x p v1 v2 -> do
+    BinOp x p v1 v2 -> do
       v1' <- lVal v1
       v2' <- lVal v2
-      let p' = case p of
-            Add -> L.buildAdd
-            Sub -> L.buildSub
-            Mul -> L.buildMul
-      v' <- p' "" v1' v2'
+      let icmp cmp = do
+            v <- L.buildICmp "" cmp v1' v2'
+            L.buildZExt "" v =<< L.int64Type
+      v' <- case p of
+        BAdd -> L.buildAdd "" v1' v2'
+        BSub -> L.buildSub "" v1' v2'
+        BMul -> L.buildMul "" v1' v2'
+        BEq -> icmp L.IntEQ
+        BNe -> icmp L.IntNE
+        BLt -> icmp L.IntSLT
+        BLe -> icmp L.IntSLE
       local (vars . at x ?~ v') do lExp e
     Unpack _a x v -> do
       v' <- lVal v
@@ -180,10 +186,10 @@ lExp = \case
     bb <- preview (conts . ix k)
     _ <- L.buildBr (fromJust bb)
     phis . at k %= (Just . M.insert bbCur v'' . fromMaybe mempty)
-  If0 v k1 k2 -> do
+  If v k1 k2 -> do
     v' <- lVal v
     i0 <- L.int64Type >>= \ti -> L.constInt True ti 0
-    cmp <- L.buildICmp "cmp" L.IntEQ v' i0
+    cmp <- L.buildICmp "cmp" L.IntNE v' i0
     bb1 <- fromJust <$> preview (conts . ix k1)
     bb2 <- fromJust <$> preview (conts . ix k2)
     _ <- L.buildCondBr cmp bb1 bb2

@@ -22,3 +22,4 @@ main = hspec $ do
   runExpect "factorial" 720
   runExpect "fibonacci" 55
   runExpect "currying" 16
+  runExpect "evenOdd" 4

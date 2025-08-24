@@ -90,7 +90,7 @@ simp =
   choice
     [ Var <$> ident <*> pure Nothing
     , IntLit <$> int
-    , Tuple <$> between (sym "<") (sym ">") (sepEndBy tm (sym ","))
+    , Tuple <$> between (sym "(|") (sym "|)") (sepEndBy tm (sym ","))
     , between (sym "(") (sym ")") tm
     ]
 
@@ -104,15 +104,21 @@ ops =
   makeExprParser
     app
     [ [Prefix (At <$> (kw "at" *> int))]
-    , [InfixL (arith Mul "*")]
+    , [InfixL (bin BMul "*")]
     ,
-      [ InfixL (arith Add "+")
-      , InfixL (arith Sub "-")
+      [ InfixL (bin BAdd "+")
+      , InfixL (bin BSub "-")
+      ]
+    ,
+      [ InfixL (bin BEq "==")
+      , InfixL (bin BNe "/=")
+      , InfixL (bin BLe "<=")
+      , InfixL (bin BLt "<")
       ]
     , [Postfix (flip Ann <$ sym ":" <*> ty)]
     ]
   where
-    arith p s = Arith p <$ sym s <?> "arithmetic operators"
+    bin p s = BinOp p <$ sym s <?> "arithmetic operators"
 
 
 letBody :: Parser (Name, Tm)
@@ -129,7 +135,7 @@ tm =
           <* kw "in"
           <*> tm
       , Abs <$> (sym "\\" *> ident) <*> optional (sym ":" *> ty) <* sym "." <*> tm
-      , If0 <$> (kw "if0" *> tm) <*> (kw "then" *> tm) <*> (kw "else" *> tm)
+      , If <$> (kw "if" *> tm) <*> (kw "then" *> tm) <*> (kw "else" *> tm)
       , ops
       ]
     <?> "expression"

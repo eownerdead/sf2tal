@@ -116,7 +116,7 @@ ckDecl d k = case d of
           | Just t <- ts ^? ix (i - 1) -> local (u_ . at x ?~ t) k
           | otherwise -> err ["Invalid index", pp d]
       t -> err ["Indexing a non-tuple value:" <+> pp t, pp d]
-  Arith x _p x1 x2 -> do
+  BinOp x _p x1 x2 -> do
     when (tyOf x1 /= TInt) do err ["LHS is not int, but" <+> pp (tyOf x1), pp d]
     when (tyOf x2 /= TInt) do err ["RHS is not int, but" <+> pp (tyOf x2), pp d]
     local (u_ . at x ?~ TInt) k
@@ -146,7 +146,7 @@ ckTm' = \case
               , pp e
               ]
       _ -> err ["Applying a non-function value", pp e]
-  e@(If0 x _k1 _k2) -> do
+  e@(If x _k1 _k2) -> do
     when (tyOf x /= TInt) do
       err ["Type of the condition is not int, but" <+> pp (tyOf x), pp e]
   Halt _ -> pure ()

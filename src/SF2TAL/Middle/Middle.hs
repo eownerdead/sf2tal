@@ -7,7 +7,7 @@ module SF2TAL.Middle.Middle
   , Ty (..)
   , Val (..)
   , Abs (..)
-  , Prim (..)
+  , BinOps (..)
   , Decl (..)
   , Tm (..)
   , Plate (..)
@@ -28,7 +28,7 @@ import Data.String
 import Effectful
 import Lens.Micro.Platform
 import Prettyprinter qualified as PP
-import SF2TAL.F (Name, Prim (..))
+import SF2TAL.F (BinOps (..), Name)
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
@@ -87,7 +87,7 @@ data Decl where
   -- | K, C, H, A: x = at i v (One-based index)
   At :: Name -> Int -> Val -> Decl
   -- | K, C, H, A: x = v1 p v2
-  Arith :: Name -> Prim -> Val -> Val -> Decl
+  BinOp :: Name -> BinOps -> Val -> Val -> Decl
   -- | C, H, A: [a, x] = unpack v
   Unpack :: TName -> Name -> Val -> Decl
   -- | A: x = <vs>
@@ -101,8 +101,8 @@ data Tm where
   AppK :: KName -> Val -> Tm
   -- | K, C, H, A: v[ts](vs){k}
   App :: Val -> [Ty] -> [Val] -> KName -> Tm
-  -- | K, C, H, A: if0(v, k1, k2)
-  If0 :: Val -> KName -> KName -> Tm
+  -- | K, C, H, A: if(v, k1, k2)
+  If :: Val -> KName -> KName -> Tm
   -- | K, C, H, A: halt v
   Halt :: Val -> Tm
   Loc :: SourcePos -> Tm -> Tm
@@ -173,13 +173,13 @@ instance Multiplate Plate where
         Let (BindK x x1 t1 e1) e -> Let <$> (BindK x x1 <$>: t1 <*>: e1) <*>: e
         Let (Rec xs) e -> Let <$> (Rec <$> traverse (getProj p) xs) <*>: e
         Let (At x i y) e -> Let (At x i y) <$>: e
-        Let (Arith x op y1 y2) e -> Let (Arith x op y1 y2) <$>: e
+        Let (BinOp x op y1 y2) e -> Let (BinOp x op y1 y2) <$>: e
         Let (Unpack a x v) e -> Let <$> (Unpack a x <$>: v) <*>: e
         Let (CTuple x vs) e -> Let <$> (CTuple x <$> traverse (getProj p) vs) <*>: e
         AppK x y -> pure $ AppK x y
         App x ts xs k ->
           App x <$> traverse (getProj p) ts <*> pure xs <*> pure k
-        If0 x e1 e2 -> pure $ If0 x e1 e2
+        If x e1 e2 -> pure $ If x e1 e2
         Halt x -> pure $ Halt x
         Loc l e -> Loc l <$>: e
 
@@ -262,7 +262,7 @@ fv = foldFor plate
       Let (Bind x v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
       Let (BindK _k x _t e1) e -> Const $ (fv e1 & at x .~ Nothing) <> fv e
       Let (At x _i v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
-      Let (Arith x _p v1 v2) e -> Const $ fv v1 <> fv v2 <> (fv e & at x .~ Nothing)
+      Let (BinOp x _p v1 v2) e -> Const $ fv v1 <> fv v2 <> (fv e & at x .~ Nothing)
       Let (Rec xs) e -> Const $ (foldMap fv xs <> fv e) M.\\ xs
       e -> traverseMFor (multiplate plate) e
 
@@ -332,7 +332,7 @@ instance PP.Pretty Decl where
     Rec xs ->
       "rec" <+> foldMap (\(x, v) -> ppDecl (pp x) (pp v)) (M.toList xs)
     At x i v -> ppDecl (pp x) ("at" <+> pp i <+> pp v)
-    Arith x p' v1 v2 ->
+    BinOp x p' v1 v2 ->
       ppDecl (pp x) (PP.sep [parens [pp v1], pp p' <+> parens [pp v2]])
     Unpack a x v ->
       ppDecl (brackets [pp a, pp x]) ("unpack" <+> parens [pp v])
@@ -349,6 +349,6 @@ instance PP.Pretty Tm where
         <> do if null ts then mempty else brackets (fmap pp ts)
         <> parens (fmap pp xs)
         <> braces [pp k]
-    If0 v e1 e2 -> "if0" <> parens [pp v, pp e1, pp e2]
+    If v e1 e2 -> "if" <> parens [pp v, pp e1, pp e2]
     Halt v -> nest $ PP.sep ["halt", parens [pp v]]
     Loc l e -> parens [pp e <+> fromString (sourcePosPretty l)]

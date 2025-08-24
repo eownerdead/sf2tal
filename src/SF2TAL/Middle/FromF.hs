@@ -108,12 +108,12 @@ kExp e k = case e of
         y <- freshName
         Let (At y i x) <$> (k . Var y =<< kTy t)
     | otherwise -> error $ docStr $ "At: " <> pp e
-  F.Arith p e1 e2 -> do
+  F.BinOp p e1 e2 -> do
     kExp e1 \x1 -> do
       kExp e2 \x2 -> do
         y <- freshName
-        Let (Arith y p x1 x2) <$> k (Var y TInt)
-  F.If0 e1 e2 e3 -> do
+        Let (BinOp y p x1 x2) <$> k (Var y TInt)
+  F.If e1 e2 e3 -> do
     dummy <- Name "_" <$> fresh
     k1' <- Name "then" <$> fresh
     k2' <- Name "else" <$> fresh
@@ -123,6 +123,6 @@ kExp e k = case e of
       pure $
         Let (BindK k1' dummy TInt k1) $
           Let (BindK k2' dummy TInt k2) $
-            If0 x k1' k2'
+            If x k1' k2'
   F.Loc l e' -> Loc l <$> kExp e' k
   _ -> error $ docStr $ "kExp: " <> pp e

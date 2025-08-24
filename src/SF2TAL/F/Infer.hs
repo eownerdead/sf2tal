@@ -304,16 +304,16 @@ inferRho = \case
           | Just t'' <- ts ^? ix (i - 1) -> pure (t'', At i e')
           | otherwise -> err "Indexing out of range"
       _ -> err $ "Indexing non tuple value" <+> pp t
-  Arith p e1 e2 -> do
+  BinOp p e1 e2 -> do
     e1' <- checkRho e1 TInt
     e2' <- checkRho e2 TInt
-    pure (TInt, Arith p e1' e2')
-  If0 v e1 e2 -> do
+    pure (TInt, BinOp p e1' e2')
+  If v e1 e2 -> do
     v' <- checkRho v TInt
     t <- freshMeta
     e1' <- checkRho e1 t
     e2' <- checkRho e2 t
-    pure (t, If0 v' e1' e2')
+    pure (t, If v' e1' e2')
   e `Ann` t -> do
     e' <- checkSigma e t
     (t', f) <- inferInstSigma t

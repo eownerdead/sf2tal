@@ -4,7 +4,7 @@ module SF2TAL.F.F
   ( TName
   , Name
   , Ty (..)
-  , Prim (..)
+  , BinOps (..)
   , Tm (..)
   , Plate (..)
   , tyOf
@@ -49,13 +49,21 @@ data Ty where
 
 
 -- | p
-data Prim
+data BinOps
   = -- | +
-    Add
+    BAdd
   | -- | -
-    Sub
+    BSub
   | -- | *
-    Mul
+    BMul
+  | -- | ==
+    BEq
+  | -- | /=
+    BNe
+  | -- | <
+    BLt
+  | -- | <=
+    BLe
 
 
 -- | u
@@ -79,9 +87,9 @@ data Tm where
   -- | at i e
   At :: Int -> Tm -> Tm
   -- | e1 p e2
-  Arith :: Prim -> Tm -> Tm -> Tm
-  -- | if0(e1, e2, e3)
-  If0 :: Tm -> Tm -> Tm -> Tm
+  BinOp :: BinOps -> Tm -> Tm -> Tm
+  -- | if(e1, e2, e3)
+  If :: Tm -> Tm -> Tm -> Tm
   -- | e: t
   Ann :: Tm -> Ty -> Tm
   Loc :: SourcePos -> Tm -> Tm
@@ -90,7 +98,7 @@ data Tm where
 deriving stock instance Show Ty
 
 
-deriving stock instance Show Prim
+deriving stock instance Show BinOps
 
 
 deriving stock instance Show Tm
@@ -105,7 +113,7 @@ instance Eq Ty where
   _ == _ = False
 
 
-deriving stock instance Eq Prim
+deriving stock instance Eq BinOps
 
 
 deriving stock instance Eq Tm
@@ -151,8 +159,8 @@ instance Multiplate Plate where
         e `AppT` t -> AppT <$>: e <*>: t
         Tuple es -> Tuple <$> traverse (getProj p) es
         At i e -> At i <$>: e
-        Arith op e1 e2 -> Arith op <$>: e1 <*>: e2
-        If0 e1 e2 e3 -> If0 <$>: e1 <*>: e2 <*>: e3
+        BinOp op e1 e2 -> BinOp op <$>: e1 <*>: e2
+        If e1 e2 e3 -> If <$>: e1 <*>: e2 <*>: e3
         e `Ann` t -> Ann <$>: e <*>: t
         Loc l e -> Loc l <$>: e
 
@@ -182,8 +190,8 @@ tyOf = \case
           | Just t <- ts ^? ix (i - 1) -> t
           | otherwise -> error "At: Index out of range"
     | otherwise -> error "At: Type of es is not TTuple"
-  Arith{} -> TInt
-  If0 _ e _ -> tyOf e
+  BinOp{} -> TInt
+  If _ e _ -> tyOf e
   _ `Ann` t -> t
   Loc _ e -> tyOf e
 
@@ -227,11 +235,15 @@ instance PP.Pretty Ty where
     TTuple ts -> angles $ fmap pp ts
 
 
-instance PP.Pretty Prim where
+instance PP.Pretty BinOps where
   pretty = \case
-    Add -> "+"
-    Sub -> "-"
-    Mul -> "*"
+    BAdd -> "+"
+    BSub -> "-"
+    BMul -> "*"
+    BEq -> "=="
+    BNe -> "/="
+    BLt -> "<"
+    BLe -> "<="
 
 
 instance PP.Pretty Tm where
@@ -256,7 +268,7 @@ instance PP.Pretty Tm where
     e `AppT` t -> ppSimp e <+> "@" <> pp t
     Tuple ts -> angles $ fmap pp ts
     At i e -> "at" <+> pp i <+> ppSimp e
-    Arith p e1 e2 -> ppSimp e1 <+> pp p <+> ppSimp e2
-    If0 e1 e2 e3 -> "if0" <> parens [pp e1, pp e2, pp e3]
+    BinOp p e1 e2 -> ppSimp e1 <+> pp p <+> ppSimp e2
+    If e1 e2 e3 -> "if" <> parens [pp e1, pp e2, pp e3]
     e `Ann` t -> pp e <+> ":" <+> pp t
     Loc l e -> parens [pp e <+> fromString (sourcePosPretty l)]

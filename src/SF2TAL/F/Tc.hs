@@ -95,13 +95,13 @@ ck' e = do
             | Just t' <- ts ^? ix (i - 1) -> pure t'
             | otherwise -> err ["Invalid index", pp e]
         t -> err ["Indexing a non-tuple value:" <+> pp t, pp e]
-    Arith _ e1 e2 -> do
+    BinOp _ e1 e2 -> do
       t1 <- ck' e1
       when (t1 /= TInt) do err ["LHS is not int, but" <+> pp t1, pp e]
       t2 <- ck' e2
       when (t2 /= TInt) do err ["RHS is not int, but" <+> pp t2, pp e]
       pure TInt
-    If0 v e1 e2 -> do
+    If v e1 e2 -> do
       tv <- ck' v
       when (tv /= TInt) do err ["Type of the condition is not int, but" <+> pp tv, pp e]
       t1 <- ck' e1

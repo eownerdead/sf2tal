@@ -91,7 +91,7 @@ cExp = \case
                   ([Var zEnv (TVar b)] <> vs')
                   k
       t -> error $ "not TExists: " <> show t
-  If0 v k1 k2 -> If0 <$> cVal v <*> pure k1 <*> pure k2
+  If v k1 k2 -> If <$> cVal v <*> pure k1 <*> pure k2
   Halt v -> Halt <$> cVal v
   Loc l e -> Loc l <$> cExp e
 
@@ -101,7 +101,7 @@ cDec = \case
   Bind x v -> Bind x <$> cVal v
   BindK x k t e -> BindK x k t <$> cExp e
   At x i v -> At x i <$> cVal v
-  Arith x p v1 v2 -> Arith x p <$> cVal v1 <*> cVal v2
+  BinOp x p v1 v2 -> BinOp x p <$> cVal v1 <*> cVal v2
   d@Rec{} -> errorK d
   d@Unpack{} -> errorK d
   CTuple x vs -> CTuple x <$> traverse cVal vs

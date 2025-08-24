@@ -1,5 +1,17 @@
 module LlvmC.Core
-  ( L.IntPredicate (.., IntEQ)
+  ( L.IntPredicate
+      ( ..
+      , IntEQ
+      , IntNE
+      , IntUGT
+      , IntUGE
+      , IntULT
+      , IntULE
+      , IntSGT
+      , IntSGE
+      , IntSLT
+      , IntSLE
+      )
   , L.ContextRef
   , L.ModuleRef
   , L.TypeRef
@@ -34,6 +46,7 @@ module LlvmC.Core
   , buildLoad2
   , buildStore
   , buildGEP2
+  , buildZExt
   , buildICmp
   , buildPhi
   , buildCall2
@@ -269,6 +282,13 @@ buildGEP2 name ty constantVal constantIndices = do
   Builder b <- getStaticRep
   unsafeEff_ $ withArrayLen constantIndices \len ptr ->
     T.withCString name $ L.buildGEP2 b ty constantVal ptr (fromIntegral len)
+
+
+buildZExt ::
+  Builder :> es => T.Text -> L.ValueRef -> L.TypeRef -> Eff es L.ValueRef
+buildZExt name val destTy = do
+  Builder b <- getStaticRep
+  unsafeEff_ $ T.withCString name $ L.buildZExt b val destTy
 
 
 buildICmp ::
