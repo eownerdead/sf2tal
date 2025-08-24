@@ -76,7 +76,6 @@ ckVal v = do
         then pure t
         else err ["Type of annotation does not match:" <+> pp t', pp v]
     IntLit _ -> pure TInt
-    Tuple xs -> pure $ TTuple $ fmap ((,True) . tyOf) xs
     v' `AppT` t ->
       ckVal v' >>= \case
         TFix (a : as) ts tk ->
@@ -114,7 +113,7 @@ ckDecl d k = case d of
     case tyOf y of
       TTuple ts ->
         if
-          | Just (t, _i) <- ts ^? ix (i - 1) -> local (u_ . at x ?~ t) k
+          | Just t <- ts ^? ix (i - 1) -> local (u_ . at x ?~ t) k
           | otherwise -> err ["Invalid index", pp d]
       t -> err ["Indexing a non-tuple value:" <+> pp t, pp d]
   Arith x _p x1 x2 -> do
@@ -125,22 +124,7 @@ ckDecl d k = case d of
     case tyOf y of
       TExists a' t -> local (u_ . at x ?~ tsubst a' (TVar a) t) k
       t -> err ["Unpacking non-existential value:" <+> pp t, pp d]
-  Malloc x ts -> local (u_ . at x ?~ tTupleUninited ts) k
-  Update x x1 i x2 -> do
-    case tyOf x1 of
-      TTuple ts ->
-        if
-          | Just (t, _) <- ts ^? ix (i - 1) -> do
-              when (tyOf x2 /= t) do
-                err
-                  [ "Type of setting value does not match"
-                  , "expected:" <+> pp t
-                  , "actual:" <+> pp (tyOf x2)
-                  , pp d
-                  ]
-              local (u_ . at x ?~ tTupleInitN i (tyOf x1)) k
-          | otherwise -> err ["Invalid index", pp d]
-      _ -> err ["Updating a non-tuple value: " <+> pp (tyOf x1), pp d]
+  CTuple x vs -> local (u_ . at x ?~ TTuple (fmap tyOf vs)) k
 
 
 ckTm' :: Tc ann es => Tm -> Eff es ()

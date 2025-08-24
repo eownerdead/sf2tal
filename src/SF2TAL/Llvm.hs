@@ -3,6 +3,7 @@ module SF2TAL.Llvm
   )
 where
 
+import Control.Monad
 import Data.Map qualified as M
 import Data.Maybe
 import Data.Text qualified as T
@@ -51,7 +52,7 @@ lTy = \case
 lTTuple :: (ToLlvm es, L.Context :> es) => Ty -> Eff es L.TypeRef
 lTTuple = \case
   TTuple ts -> do
-    L.structType False =<< traverse (lTy . fst) ts
+    L.structType False =<< traverse lTy ts
   _ -> error "TTuple expected"
 
 
@@ -104,7 +105,6 @@ lVal = \case
   IntLit i -> L.int64Type >>= \t -> L.constInt True t (fromIntegral i)
   AppT v _ -> lVal v
   Pack _t1 v _t2 -> lVal v
-  v -> error $ "not Val: " <> T.unpack (prettyText v)
 
 
 lExp :: (ToLlvm es, L.Context :> es, L.Builder :> es) => Tm -> Eff es ()
@@ -129,7 +129,7 @@ lExp = \case
             lExp e1
     At x i v
       | TTuple ts <- tyOf v
-      , Just (tv, _) <- ts ^? ix (i - 1) -> do
+      , Just tv <- ts ^? ix (i - 1) -> do
           v' <- lVal v
           t <- lTTuple $ tyOf v
           i' <- L.int64Type >>= \ti -> L.constInt True ti (fromIntegral i - 1)
@@ -151,18 +151,15 @@ lExp = \case
     Unpack _a x v -> do
       v' <- lVal v
       local (vars . at x ?~ v') do lExp e
-    Malloc x ts -> do
-      ts' <- lTTuple $ TTuple $ fmap (,True) ts
+    CTuple x vs -> do
+      ts' <- lTTuple $ TTuple $ fmap tyOf vs
       v' <- L.buildMalloc (prettyText x) ts'
+      forM_ (zip vs [1 ..]) \(vi, i) -> do
+        vi' <- lVal vi
+        i' <- L.int64Type >>= \ti -> L.constInt True ti (i - 1)
+        vd <- L.buildGEP2 "" ts' v' [i']
+        L.buildStore vi' vd
       local (vars . at x ?~ v') do lExp e
-    Update x v1 i v2 -> do
-      v1' <- lVal v1
-      t <- lTTuple $ tyOf v1
-      i' <- L.int64Type >>= \ti -> L.constInt True ti (fromIntegral i - 1)
-      v1'' <- L.buildGEP2 "" t v1' [i']
-      v2' <- lVal v2
-      _ <- L.buildStore v2' v1''
-      local (vars . at x ?~ v1') do lExp e
     Rec _xs -> error "LetRec in non top-level"
   AppK k v -> do
     bbCur <- L.getInsertBlock

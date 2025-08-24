@@ -45,14 +45,8 @@ compile s = do
   logMsg Info "Verifying lambda C"
   M.ckTm c
 
-  logMsg Info "Converting to lambda A"
-  a <- M.aProg c
-  logMsg Debug $ docText $ pp a
-  logMsg Info "Verifying to lambda A"
-  M.ckTm a
-
   logMsg Info "Converting to LLVM IR"
-  m <- L.lProg a
+  m <- L.lProg c
   liftIO $ L.dumpModule m
   logMsg Info "Verifying LLVM IR"
   _ <- liftIO $ L.verifyModule m L.PrintMessageAction nullPtr

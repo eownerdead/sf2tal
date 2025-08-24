@@ -35,7 +35,7 @@ kTy = \case
     a' <- freshen a
     t' <- kTy t
     pure $ TFix [a'] [] t'
-  F.TTuple ts -> tTuple <$> traverse kTy ts
+  F.TTuple ts -> TTuple <$> traverse kTy ts
 
 
 kProg :: Uniq :> es => F.Tm -> Eff es Tm
@@ -94,10 +94,12 @@ kExp e k = case e of
     s' <- kTy s
     expand k t' \k' ->
       kExp e' \x -> pure $ App x [s'] [] k'
-  F.Tuple vs ->
+  F.Tuple vs -> do
+    t <- kTy $ F.tyOf e
+    x <- freshName
     foldr
-      (\v k' vs' -> kExp v \x -> k' (x : vs'))
-      (k . Tuple)
+      (\v k' vs' -> kExp v \x' -> k' (x' : vs'))
+      (\xs -> Let (CTuple x xs) <$> k (Var x t))
       vs
       []
   F.At i e'

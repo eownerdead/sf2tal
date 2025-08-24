@@ -82,7 +82,6 @@ library sf2tal-lib
     SF2TAL.Middle.Tc,
     SF2TAL.Middle.FromF,
     SF2TAL.Middle.FromK,
-    SF2TAL.Middle.FromC,
 
 executable sf2tal
   import: common

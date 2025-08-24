@@ -14,10 +14,6 @@ module SF2TAL.Middle.Middle
   , TyOf (..)
   , fv
   , ftv
-  , tTupleInitN
-  , tTuple
-  , tTupleUninited
-  , tTupleInitedToN
   , tExists
   , appT
   , tsubst
@@ -57,8 +53,8 @@ data Ty where
   TInt :: Ty
   -- | K, C, H, A: forall[as]. (ts){t} -> void
   TFix :: [TName] -> [Ty] -> Ty -> Ty
-  -- | K, C, H, A: ^ <ts>
-  TTuple :: [(Ty, Bool)] -> Ty
+  -- | K, C, H, A: <ts>
+  TTuple :: [Ty] -> Ty
   -- | C, H, A: exists a. t
   TExists :: TName -> Ty -> Ty
 
@@ -69,8 +65,6 @@ data Val where
   Var :: Name -> Ty -> Val
   -- | K, C, H, A: i
   IntLit :: Int -> Val
-  -- | K, C, H, A: <vs>
-  Tuple :: [Val] -> Val
   -- | C, H, A: v[t]
   AppT :: Val -> Ty -> Val
   -- | C, H, A: pack [t1, v] as t2
@@ -96,10 +90,8 @@ data Decl where
   Arith :: Name -> Prim -> Val -> Val -> Decl
   -- | C, H, A: [a, x] = unpack v
   Unpack :: TName -> Name -> Val -> Decl
-  -- | A: x = malloc ts
-  Malloc :: Name -> [Ty] -> Decl
-  -- | A: x = v1[i] <- v2
-  Update :: Name -> Val -> Int -> Val -> Decl
+  -- | A: x = <vs>
+  CTuple :: Name -> [Val] -> Decl
 
 
 data Tm where
@@ -164,13 +156,12 @@ instance Multiplate Plate where
         TVar x -> pure $ TVar x
         TInt -> pure TInt
         TFix as ts t -> TFix as <$> traverse (getProj p) ts <*>: t
-        TTuple ts -> TTuple <$> traverseOf (each . _1) (getProj p) ts
+        TTuple ts -> TTuple <$> traverse (getProj p) ts
         TExists a t -> TExists a <$>: t
 
       pVal = \case
         Var x t -> Var x <$>: t
         IntLit i -> pure $ IntLit i
-        Tuple vs -> Tuple <$> traverse (getProj p) vs
         v `AppT` t -> AppT <$>: v <*>: t
         Pack t1 v t2 -> Pack <$>: t1 <*>: v <*>: t2
 
@@ -184,8 +175,7 @@ instance Multiplate Plate where
         Let (At x i y) e -> Let (At x i y) <$>: e
         Let (Arith x op y1 y2) e -> Let (Arith x op y1 y2) <$>: e
         Let (Unpack a x v) e -> Let <$> (Unpack a x <$>: v) <*>: e
-        Let (Malloc x ts) e -> Let <$> (Malloc x <$> traverse (getProj p) ts) <*>: e
-        Let (Update x v1 i v2) e -> Let <$> (Update x <$>: v1 <*> pure i <*>: v2) <*>: e
+        Let (CTuple x vs) e -> Let <$> (CTuple x <$> traverse (getProj p) vs) <*>: e
         AppK x y -> pure $ AppK x y
         App x ts xs k ->
           App x <$> traverse (getProj p) ts <*> pure xs <*> pure k
@@ -213,24 +203,6 @@ instance ProjOf Plate Tm where
   getProj = pTm
 
 
-tTupleInitN :: Int -> Ty -> Ty
-tTupleInitN n = \case
-  TTuple ts -> TTuple (ts & ix (n - 1) . _2 .~ True)
-  _ -> error "tTupleInitN: not TTuple"
-
-
-tTuple :: [Ty] -> Ty
-tTuple = TTuple . fmap (,True)
-
-
-tTupleUninited :: [Ty] -> Ty
-tTupleUninited = TTuple . fmap (,False)
-
-
-tTupleInitedToN :: Int -> [Ty] -> Ty
-tTupleInitedToN i ts = foldr tTupleInitN (tTupleUninited ts) [1 .. i]
-
-
 -- | exists[as]. t
 tExists :: [TName] -> Ty -> Ty
 tExists as t = foldr TExists t as
@@ -249,7 +221,6 @@ instance TyOf Val where
   tyOf = \case
     Var _ t -> t
     IntLit _ -> TInt
-    Tuple vs -> TTuple $ fmap ((,True) . tyOf) vs
     v `AppT` t ->
       if
         | TFix (a : as) ts tk <- tyOf v -> TFix as (tsubst a t <$> ts) tk
@@ -326,8 +297,7 @@ instance PP.Pretty Ty where
       where
         quantifier = "forall" <> brackets (fmap pp as) <> "."
         body = parens (fmap pp xs) <> braces [pp t] <+> "-> void"
-    TTuple ts ->
-      angles $ fmap (\(t, i) -> (if i then mempty else "*") <> pp t) ts
+    TTuple ts -> angles $ fmap pp ts
     TExists a t -> nest $ PP.sep ["exists" <+> pp a <> PP.dot, pp t]
 
 
@@ -335,7 +305,6 @@ instance PP.Pretty Val where
   pretty = \case
     Var x t -> pp x <+> ":" <+> pp t
     IntLit i -> pp i
-    Tuple vs -> angles $ fmap pp vs
     v `AppT` t -> parens [pp v] <> brackets [pp t]
     Pack t1 v t2 ->
       nest $ PP.sep ["pack" <+> brackets [pp t1, pp v] <+> "as", pp t2]
@@ -367,14 +336,8 @@ instance PP.Pretty Decl where
       ppDecl (pp x) (PP.sep [parens [pp v1], pp p' <+> parens [pp v2]])
     Unpack a x v ->
       ppDecl (brackets [pp a, pp x]) ("unpack" <+> parens [pp v])
-    Malloc x ts ->
-      ppDecl (pp x) ("malloc" <+> brackets (fmap pp ts))
-    Update x v1 i v2 ->
-      nest $
-        PP.sep
-          [ pp x <+> PP.equals
-          , nest $ PP.sep [parens [pp v1] <> brackets [pp i] <+> "<-", pp v2]
-          ]
+    CTuple x ts ->
+      ppDecl (pp x) (angles (fmap pp ts))
 
 
 instance PP.Pretty Tm where
