@@ -261,9 +261,11 @@ fv = foldFor plate
     pTm = \case
       Let (Bind x v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
       Let (BindK _k x _t e1) e -> Const $ (fv e1 & at x .~ Nothing) <> fv e
+      Let (Rec xs) e -> Const $ (foldMap fv xs <> fv e) M.\\ xs
       Let (At x _i v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
       Let (BinOp x _p v1 v2) e -> Const $ fv v1 <> fv v2 <> (fv e & at x .~ Nothing)
-      Let (Rec xs) e -> Const $ (foldMap fv xs <> fv e) M.\\ xs
+      Let (Unpack a x v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
+      Let (CTuple x vs) e -> Const $ foldMap fv vs <> (fv e & at x .~ Nothing)
       e -> traverseMFor (multiplate plate) e
 
 
@@ -303,7 +305,7 @@ instance PP.Pretty Ty where
 
 instance PP.Pretty Val where
   pretty = \case
-    Var x t -> pp x <+> ":" <+> pp t
+    Var x t -> pp x -- <+> ":" <+> pp t
     IntLit i -> pp i
     v `AppT` t -> parens [pp v] <> brackets [pp t]
     Pack t1 v t2 ->
@@ -351,4 +353,4 @@ instance PP.Pretty Tm where
         <> braces [pp k]
     If v e1 e2 -> "if" <> parens [pp v, pp e1, pp e2]
     Halt v -> nest $ PP.sep ["halt", parens [pp v]]
-    Loc l e -> parens [pp e <+> fromString (sourcePosPretty l)]
+    Loc l e -> pp e -- <+> fromString (sourcePosPretty l)]

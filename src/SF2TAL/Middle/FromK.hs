@@ -31,7 +31,7 @@ cTy = \case
     t' <- cTy t
     pure $ TExists b $ TTuple [TFix as (TVar b : ts') t', TVar b]
   TTuple ts -> TTuple <$> traverse cTy ts
-  t@TExists{} -> error $ "not in K: " <> show t
+  TExists a t -> TExists a <$> cTy t
 
 
 cProg :: Uniq :> es => Tm -> Eff es Tm
@@ -42,8 +42,9 @@ cProg p = do
 
 cExp :: C es => Tm -> Eff es Tm
 cExp = \case
-  Let (Rec xs) e1 -> do
-    let fvs = M.toList $ fv $ Let (Rec xs) e1
+  Let (Rec fs) e1 -> do
+    fs' <- traverse (\(Abs as xs' k tk e) -> Abs as xs' k tk <$> cExp e) fs
+    let fvs = M.toList $ fv $ Let (Rec fs') e1
     vEnv <- Name "vEnv" <$> fresh
     dVEnv <- CTuple vEnv <$> mapM (\(y, s) -> Var y <$> cTy s) fvs
     tEnv <- TTuple <$> traverse (cTy . snd) fvs
@@ -52,12 +53,11 @@ cExp = \case
             (\(i, y) -> Let (At y i $ Var vEnv tEnv))
             e'
             (zip [1 ..] $ fmap fst fvs)
-    xs' <- (`M.traverseWithKey` xs) \x v@(Abs as xs' k tk e) -> do
-      e' <- cExp e
+    fs'' <- (`M.traverseWithKey` fs') \x v@(Abs as xs' k tk e) -> do
       ts' <- traverse (cTy . snd) xs'
       let bs = S.toList $ ftv v
       let vCode withCls = Abs (bs <> as) ((vEnv, tEnv) : zip (fmap fst xs') ts') k tk do
-            withCls $ withZEnv e'
+            withCls $ withZEnv e
       let tRawCode = TFix (bs <> as) (tEnv : ts') tk
       zCode <- Name (prettyText x <> ".zCode") <$> fresh
       cl <- freshName
@@ -66,8 +66,8 @@ cExp = \case
             Let (CTuple cl [Var zCode tRawCode `appT` fmap TVar bs, Var vEnv tEnv])
               . Let (Bind x (Pack tEnv (Var cl $ TTuple [tRawCode, tEnv]) tv))
       pure (zCode, vCode, packCl)
-    let packCls e = foldr (\(_, _, v) -> v) e xs'
-    forM_ xs' \(zCode, vCode, _) -> tell $ M.singleton zCode (vCode packCls)
+    let packCls e = foldr (\(_, _, v) -> v) e fs''
+    forM_ fs'' \(zCode, vCode, _) -> tell $ M.singleton zCode (vCode packCls)
     Let dVEnv . packCls <$> cExp e1
   Let d e -> Let <$> cDec d <*> cExp e
   AppK k v -> pure $ AppK k v

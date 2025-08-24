@@ -23,3 +23,4 @@ main = hspec $ do
   runExpect "fibonacci" 55
   runExpect "currying" 16
   runExpect "evenOdd" 4
+  runExpect "ackermann" 8189
