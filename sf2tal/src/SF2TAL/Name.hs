@@ -5,10 +5,9 @@ module SF2TAL.Name
 where
 
 import Data.Text qualified as T
-import Effectful
 import Prettyprinter qualified as PP
 import SF2TAL.PP
-import SF2TAL.Uniq
+import SF2TAL.Prelude
 
 
 data Name_ sort = Name {name :: T.Text, uniq :: Int}

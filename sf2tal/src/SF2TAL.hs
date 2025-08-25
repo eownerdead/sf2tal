@@ -4,7 +4,6 @@ import Data.ByteString.Lazy.Char8 qualified as C
 import Data.Text qualified as T
 import Data.Text.Foreign qualified as T
 import Data.Text.IO qualified as T
-import Effectful
 import Foreign.C.String
 import Foreign.Ptr
 import LlvmC.Raw.Analysis qualified as L
@@ -15,8 +14,7 @@ import SF2TAL.F qualified as F
 import SF2TAL.Llvm qualified as L
 import SF2TAL.Middle qualified as M
 import SF2TAL.PP
-import SF2TAL.Uniq
-import SF2TAL.Utils
+import SF2TAL.Prelude
 import System.Process.Typed qualified as P
 import UnliftIO
 

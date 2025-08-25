@@ -4,14 +4,11 @@ module SF2TAL.Middle.FromF
 where
 
 import Data.Map qualified as M
-import Effectful
 import Effectful.State.Static.Local.Microlens
-import Lens.Micro.Platform hiding (preuse)
 import SF2TAL.F qualified as F
 import SF2TAL.Middle.Middle
-import SF2TAL.Name
 import SF2TAL.PP
-import SF2TAL.Uniq
+import SF2TAL.Prelude
 
 
 type K es = (Uniq :> es, State (M.Map F.TName Int) :> es)

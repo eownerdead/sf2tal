@@ -3,24 +3,16 @@ module SF2TAL.F.Infer
   )
 where
 
-import Control.Exception.Safe
-import Control.Monad
-import Data.Foldable
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Data.Text qualified as T
-import Effectful
 import Effectful.Reader.Static.Microlens
 import Effectful.State.Static.Local.Microlens
-import GHC.Stack
-import Lens.Micro.Platform hiding (preuse, preview, (.=))
 import Prettyprinter qualified as PP
 import SF2TAL.F.F
-import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
-import SF2TAL.Uniq
-import SF2TAL.Utils
+import SF2TAL.Prelude
 
 
 type TcEnv = M.Map Name Ty
@@ -62,7 +54,7 @@ err :: (HasCallStack, Tc es) => PP.Doc ann -> Eff es a
 err msg = do
   env <- ask
   st <- get
-  throwM $ TcException{msg, env, st}
+  throwIO $ TcException{msg, env, st}
 
 
 extendEnv :: Tc es => Name -> Ty -> Eff es a -> Eff es a

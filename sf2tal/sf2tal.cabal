@@ -20,6 +20,7 @@ common common
     FunctionalDependencies,
     LambdaCase,
     MultiWayIf,
+    NoImplicitPrelude,
     NoFieldSelectors,
     OverloadedStrings,
     ParallelListComp,
@@ -64,6 +65,7 @@ library sf2tal-lib
     llvm-c-raw,
   exposed-modules:
     SF2TAL,
+    SF2TAL.Prelude,
     SF2TAL.Utils,
     SF2TAL.Plate,
     SF2TAL.Name,

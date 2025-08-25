@@ -24,6 +24,7 @@ where
 import Control.Monad
 import Data.Functor.Const
 import Data.Functor.Identity
+import Prelude
 
 
 type Proj p a = forall f. p f -> a -> f a

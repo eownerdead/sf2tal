@@ -3,17 +3,12 @@ module SF2TAL.F.Tc
   )
 where
 
-import Control.Exception.Safe
-import Control.Monad
-import Data.Foldable
 import Data.Map qualified as M
-import Effectful
 import Effectful.Reader.Static.Microlens
-import GHC.Stack
-import Lens.Micro.Platform hiding (preview, view)
 import Prettyprinter qualified as PP
 import SF2TAL.F.F
 import SF2TAL.PP
+import SF2TAL.Prelude
 
 
 type Env = M.Map Name Ty
@@ -37,7 +32,7 @@ type Tc ann es = (Reader Env :> es)
 err :: (HasCallStack, Tc ann es) => [PP.Doc ann] -> Eff es a
 err es = do
   env <- ask
-  throwM $ TcException (PP.vsep es) env
+  throwIO $ TcException (PP.vsep es) env
 
 
 extendEnv :: Tc ann es => Name -> Ty -> Eff es a -> Eff es a

@@ -1,9 +1,8 @@
 module Main (main) where
 
 import Data.Text.IO qualified as T
-import Effectful
 import SF2TAL hiding (main)
-import SF2TAL.Utils
+import SF2TAL.Prelude
 import Test.Hspec
 
 

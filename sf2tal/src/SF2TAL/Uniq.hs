@@ -7,6 +7,7 @@ where
 
 import Effectful
 import Effectful.Dispatch.Static
+import Prelude
 
 
 data Uniq :: Effect

@@ -1,17 +1,13 @@
 module SF2TAL.F.Parse (parse) where
 
-import Control.Exception.Safe hiding (try)
-import Control.Monad
 import Control.Monad.Combinators.Expr
 import Data.Char
 import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Data.Text qualified as T
-import Data.Void
-import Effectful
 import SF2TAL.F.F
-import SF2TAL.Name
+import SF2TAL.Prelude hiding (try)
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
@@ -144,4 +140,4 @@ tm =
 parse :: T.Text -> Eff es Tm
 parse s = case runParser (ws *> tm <* eof) "" s of
   Right x -> pure x
-  Left e -> throwString $ errorBundlePretty e
+  Left e -> error $ errorBundlePretty e

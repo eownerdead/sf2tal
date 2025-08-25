@@ -1,7 +1,8 @@
 {-# LANGUAGE FieldSelectors #-}
 
 module SF2TAL.Middle.Middle
-  ( TName
+  ( module SF2TAL.Name
+  , TName
   , Name
   , KName
   , Ty (..)
@@ -21,19 +22,15 @@ module SF2TAL.Middle.Middle
   )
 where
 
-import Data.Functor.Const
 import Data.Map qualified as M
 import Data.Set qualified as S
-import Data.String
-import Effectful
-import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.F (BinOps (..), Name)
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
-import SF2TAL.Uniq
-import Text.Megaparsec (SourcePos, sourcePosPretty)
+import SF2TAL.Prelude
+import Text.Megaparsec (SourcePos)
 
 
 type TName = Int
@@ -264,7 +261,7 @@ fv = foldFor plate
       Let (Rec xs) e -> Const $ (foldMap fv xs <> fv e) M.\\ xs
       Let (At x _i v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
       Let (BinOp x _p v1 v2) e -> Const $ fv v1 <> fv v2 <> (fv e & at x .~ Nothing)
-      Let (Unpack a x v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
+      Let (Unpack _a x v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
       Let (CTuple x vs) e -> Const $ foldMap fv vs <> (fv e & at x .~ Nothing)
       e -> traverseMFor (multiplate plate) e
 

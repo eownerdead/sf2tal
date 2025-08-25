@@ -3,18 +3,12 @@ module SF2TAL.Middle.Tc
   )
 where
 
-import Control.Exception.Safe
-import Control.Monad
-import Data.Foldable
 import Data.Map qualified as M
-import Effectful
 import Effectful.Reader.Static
-import GHC.Stack
-import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.Middle.Middle
 import SF2TAL.PP
-import SF2TAL.Utils
+import SF2TAL.Prelude
 
 
 data Env = Env
@@ -56,7 +50,7 @@ type Tc ann es = (Reader Env :> es)
 err :: (HasCallStack, Tc ann es) => [PP.Doc ann] -> Eff es a
 err es = do
   env <- ask
-  throwM $ TcException (PP.vsep es) env
+  throwIO $ TcException (PP.vsep es) env
 
 
 lookupVar :: Tc ann es => Name -> Eff es Ty

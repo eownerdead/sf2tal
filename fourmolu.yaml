@@ -10,3 +10,5 @@ single-constraint-parens: never
 single-deriving-parens: never
 unicode: never
 respectful: false
+reexports:
+  - module SF2TAL.Prelude exports Prelude

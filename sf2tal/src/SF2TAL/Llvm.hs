@@ -3,19 +3,15 @@ module SF2TAL.Llvm
   )
 where
 
-import Control.Monad
 import Data.Map qualified as M
-import Data.Maybe
+import Data.Maybe (fromJust)
 import Data.Text qualified as T
-import Data.Tuple
-import Effectful
 import Effectful.Reader.Static.Microlens
 import Effectful.State.Static.Local.Microlens
-import Lens.Micro.Platform hiding (preuse, preview, use, (%=), (?=))
 import LlvmC.Core qualified as L
 import SF2TAL.Middle
 import SF2TAL.PP
-import SF2TAL.Utils
+import SF2TAL.Prelude
 
 
 data LlvmEnv = LlvmEnv

@@ -3,15 +3,12 @@ module SF2TAL.Middle.FromK
   )
 where
 
-import Control.Monad
 import Data.Map qualified as M
 import Data.Set qualified as S
-import Effectful
 import Effectful.Writer.Static.Local
 import SF2TAL.Middle.Middle
-import SF2TAL.Name
 import SF2TAL.PP
-import SF2TAL.Uniq
+import SF2TAL.Prelude
 
 
 errorK :: Show a => a -> b

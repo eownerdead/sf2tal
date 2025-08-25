@@ -15,6 +15,7 @@ import Effectful
 import Effectful.Dispatch.Dynamic
 import Effectful.TH
 import System.IO
+import Prelude
 
 
 data LogLevel = Debug | Info

@@ -1,7 +1,8 @@
 {-# LANGUAGE FieldSelectors #-}
 
 module SF2TAL.F.F
-  ( TName
+  ( module SF2TAL.Name
+  , TName
   , Name
   , Ty (..)
   , BinOps (..)
@@ -15,13 +16,12 @@ where
 
 import Data.Map qualified as M
 import Data.Set qualified as S
-import Data.String (fromString)
 import Data.Text qualified as T
-import Lens.Micro.Platform
 import Prettyprinter qualified as PP
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
+import SF2TAL.Prelude
 import Text.Megaparsec (SourcePos, sourcePosPretty)
 
 

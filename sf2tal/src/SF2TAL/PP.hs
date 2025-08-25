@@ -18,6 +18,7 @@ import Data.Text qualified as T
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.String qualified as PP
 import Prettyprinter.Render.Text qualified as PP
+import SF2TAL.Prelude
 
 
 pp :: PP.Pretty a => a -> PP.Doc ann
