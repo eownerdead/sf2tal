@@ -5,6 +5,7 @@ where
 
 import Data.Map qualified as M
 import Data.Set qualified as S
+import Effectful.Reader.Static.Microlens
 import Effectful.Writer.Static.Local
 import SF2TAL.Middle.Middle
 import SF2TAL.PP
@@ -15,7 +16,16 @@ errorK :: Show a => a -> b
 errorK x = error $ "not in K: " <> show x
 
 
-type C es = (Uniq :> es, Writer (M.Map Name Abs) :> es)
+type KnowCl = [Ty] -> [Val] -> KName -> Tm
+
+
+newtype CEnv = CEnv {knownCls :: M.Map Name KnowCl}
+
+
+$(makeFieldsId 'CEnv)
+
+
+type C es = (Uniq :> es, Writer (M.Map Name Abs) :> es, Reader CEnv :> es)
 
 
 cTy :: C es => Ty -> Eff es Ty
@@ -33,7 +43,7 @@ cTy = \case
 
 cProg :: Uniq :> es => Tm -> Eff es Tm
 cProg p = do
-  (e, xs) <- runWriter do cExp p
+  (e, xs) <- runWriter $ runReader (CEnv{knownCls = mempty}) do cExp p
   pure $ Let (Rec xs) e
 
 
@@ -53,41 +63,58 @@ cExp = \case
     fs'' <- (`M.traverseWithKey` fs') \x v@(Abs as xs' k tk e) -> do
       ts' <- traverse (cTy . snd) xs'
       let bs = S.toList $ ftv v
-      let vCode withCls = Abs (bs <> as) ((vEnv, tEnv) : zip (fmap fst xs') ts') k tk do
+      let eVCode withCls = Abs (bs <> as) ((vEnv, tEnv) : zip (fmap fst xs') ts') k tk do
             withCls $ withZEnv e
       let tRawCode = TFix (bs <> as) (tEnv : ts') tk
-      zCode <- Name (prettyText x <> ".zCode") <$> fresh
+      vCode <- Name (prettyText x <> ".zCode") <$> fresh
       cl <- freshName
       tv <- cTy (tyOf v)
       let packCl =
-            Let (CTuple cl [Var zCode tRawCode `appT` fmap TVar bs, Var vEnv tEnv])
+            Let (CTuple cl [Var vCode tRawCode `appT` fmap TVar bs, Var vEnv tEnv])
               . Let (Bind x (Pack tEnv (Var cl $ TTuple [tRawCode, tEnv]) tv))
-      pure (zCode, vCode, packCl)
-    let packCls e = foldr (\(_, _, v) -> v) e fs''
-    forM_ fs'' \(zCode, vCode, _) -> tell $ M.singleton zCode (vCode packCls)
-    Let dVEnv . packCls <$> cExp e1
+      zEnv <- Name "zEnv" <$> fresh
+      let call ts vs k' =
+            Let (CTuple zEnv []) $
+              App
+                ((Var vCode tRawCode `appT` fmap TVar bs) `appT` ts)
+                []
+                (Var zEnv (TTuple []) : vs)
+                k'
+      pure (vCode, eVCode, packCl, call)
+    let packCls e = foldr (\(_, _, v, _) -> v) e fs''
+    forM_ fs'' \(vCode, eVCode, _, _) -> tell $ M.singleton vCode (eVCode packCls)
+    local
+      (knownCls <>~ if null fvs then fmap (\(_, _, _, call) -> call) fs'' else mempty)
+      do
+        Let dVEnv . packCls <$> cExp e1
   Let d e -> Let <$> cDec d <*> cExp e
   AppK k v -> pure $ AppK k v
-  App v ts vs k -> do
-    z <- Name "z" <$> fresh
-    v' <- cVal v
-    zCode <- Name "zCode" <$> fresh
-    zEnv <- Name "zEnv" <$> fresh
-    ts' <- traverse cTy ts
-    vs' <- traverse cVal vs
-    cTy (tyOf v) >>= \case
-      TExists b (TTuple [tCode, b']) -> do
-        when (TVar b /= b') do error "cExp: b /= b'"
-        pure $
-          Let (Unpack b z v') $
-            Let (At zCode 1 $ Var z (TTuple [tCode, TVar b])) $
-              Let (At zEnv 2 $ Var z (TTuple [tCode, TVar b])) $
-                App
-                  (Var zCode tCode `appT` ts')
-                  []
-                  ([Var zEnv (TVar b)] <> vs')
-                  k
-      t -> error $ "not TExists: " <> show t
+  App v ts vs k
+    | Var f t <- v -> do
+        v' <- cVal v
+        ts' <- traverse cTy ts
+        vs' <- traverse cVal vs
+        call' <- preview (knownCls . ix f)
+        if
+          | Just call <- call' -> pure $ call ts' vs' k
+          | otherwise ->
+              cTy t >>= \case
+                TExists b (TTuple [tCode, b']) -> do
+                  z <- Name "z" <$> fresh
+                  zCode <- Name "zCode" <$> fresh
+                  zEnv <- Name "zEnv" <$> fresh
+                  when (TVar b /= b') do error "cExp: b /= b'"
+                  pure $
+                    Let (Unpack b z v') $
+                      Let (At zCode 1 $ Var z (TTuple [tCode, TVar b])) $
+                        Let (At zEnv 2 $ Var z (TTuple [tCode, TVar b])) $
+                          App
+                            (Var zCode tCode `appT` ts')
+                            []
+                            ([Var zEnv (TVar b)] <> vs')
+                            k
+                t' -> error $ "not TExists: " <> show t'
+    | otherwise -> error "Calling non-variable value in K"
   If v k1 k2 -> If <$> cVal v <*> pure k1 <*> pure k2
   Halt v -> Halt <$> cVal v
   Loc l e -> Loc l <$> cExp e
