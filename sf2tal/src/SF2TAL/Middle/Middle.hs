@@ -7,10 +7,11 @@ module SF2TAL.Middle.Middle
   , KName
   , Ty (..)
   , Val (..)
-  , Abs (..)
+  , Data (..)
   , BinOps (..)
   , Decl (..)
   , Tm (..)
+  , TopLevel (..)
   , Plate (..)
   , TyOf (..)
   , fv
@@ -18,7 +19,6 @@ module SF2TAL.Middle.Middle
   , tExists
   , appT
   , tsubst
-  , subst
   )
 where
 
@@ -44,51 +44,51 @@ type KName = Name_ K_
 
 -- | t
 data Ty where
-  -- | K, C, H, A: a
+  -- | a
   TVar :: TName -> Ty
-  -- | K, C, H, A: int
+  -- | int
   TInt :: Ty
-  -- | K, C, H, A: forall[as]. (ts){t} -> void
+  -- | forall[as]. (ts){t} -> void
   TFix :: [TName] -> [Ty] -> Ty -> Ty
-  -- | K, C, H, A: <ts>
+  -- | <ts>
   TTuple :: [Ty] -> Ty
-  -- | C, H, A: exists a. t
+  -- | exists a. t
   TExists :: TName -> Ty -> Ty
 
 
 -- | v
 data Val where
-  -- | K, C, H, A: x : t
+  -- | x : t
   Var :: Name -> Ty -> Val
-  -- | K, C, H, A: i
+  -- | i
   IntLit :: Int -> Val
-  -- | C, H, A: v[t]
+  -- | v[t]
   AppT :: Val -> Ty -> Val
-  -- | C, H, A: pack [t1, v] as t2
+  -- | pack [t1, v] as t2
   Pack :: Ty -> Val -> Ty -> Val
 
 
-data Abs where
-  -- | K, C, H, A: \[as](x1: t1, ..., xn: tn){k: t}. e
-  Abs :: [TName] -> [(Name, Ty)] -> KName -> Ty -> Tm -> Abs
+data Data where
+  -- | \[as](x1: t1, ..., xn: tn){k: t}. e
+  Abs :: [TName] -> [(Name, Ty)] -> KName -> Ty -> Tm -> Data
+  -- | <vs>
+  Tuple :: [Val] -> Data
 
 
 -- | d
 data Decl where
-  -- | K, C, H, A: x = v
+  -- | v
   Bind :: Name -> Val -> Decl
-  -- | K, C, H, A: k = \(x: t) e
+  -- | rec ds
+  Rec :: M.Map Name Data -> Decl
+  -- | k = \(x: t) e
   BindK :: KName -> Name -> Ty -> Tm -> Decl
-  -- | K, C, H, A: rec ds
-  Rec :: M.Map Name Abs -> Decl
-  -- | K, C, H, A: x = at i v (One-based index)
+  -- | x = at i v (One-based index)
   At :: Name -> Int -> Val -> Decl
-  -- | K, C, H, A: x = v1 p v2
+  -- | x = v1 p v2
   BinOp :: Name -> BinOps -> Val -> Val -> Decl
-  -- | C, H, A: [a, x] = unpack v
+  -- | [a, x] = unpack v
   Unpack :: TName -> Name -> Val -> Decl
-  -- | A: x = <vs>
-  CTuple :: Name -> [Val] -> Decl
 
 
 data Tm where
@@ -100,9 +100,10 @@ data Tm where
   App :: Val -> [Ty] -> [Val] -> KName -> Tm
   -- | K, C, H, A: if(v, k1, k2)
   If :: Val -> KName -> KName -> Tm
-  -- | K, C, H, A: halt v
-  Halt :: Val -> Tm
   Loc :: SourcePos -> Tm -> Tm
+
+
+newtype TopLevel = TopLevel (M.Map Name Data)
 
 
 deriving stock instance Show Ty
@@ -111,13 +112,16 @@ deriving stock instance Show Ty
 deriving stock instance Show Val
 
 
-deriving stock instance Show Abs
+deriving stock instance Show Data
 
 
 deriving stock instance Show Decl
 
 
 deriving stock instance Show Tm
+
+
+deriving stock instance Show TopLevel
 
 
 instance Eq Ty where
@@ -134,13 +138,13 @@ instance Eq Ty where
 data Plate f = Plate
   { pTy :: Ty -> f Ty
   , pVal :: Val -> f Val
-  , pAbs :: Abs -> f Abs
+  , pData :: Data -> f Data
   , pTm :: Tm -> f Tm
   }
 
 
 instance Multiplate Plate where
-  multiplate (p :: Plate f) = Plate{pTy, pVal, pAbs, pTm}
+  multiplate (p :: Plate f) = Plate{pTy, pVal, pData, pTm}
     where
       infixl 4 <$>:
       infixl 4 <*>:
@@ -162,26 +166,26 @@ instance Multiplate Plate where
         v `AppT` t -> AppT <$>: v <*>: t
         Pack t1 v t2 -> Pack <$>: t1 <*>: v <*>: t2
 
-      pAbs (Abs as xs k kt e) =
-        Abs as <$> traverseOf (each . _2) (getProj p) xs <*> pure k <*>: kt <*>: e
+      pData = \case
+        Abs as xs k kt e ->
+          Abs as <$> traverseOf (each . _2) (getProj p) xs <*> pure k <*>: kt <*>: e
+        Tuple vs -> Tuple <$> traverse (getProj p) vs
 
       pTm = \case
         Let (Bind x v) e -> Let <$> (Bind x <$>: v) <*>: e
-        Let (BindK x x1 t1 e1) e -> Let <$> (BindK x x1 <$>: t1 <*>: e1) <*>: e
         Let (Rec xs) e -> Let <$> (Rec <$> traverse (getProj p) xs) <*>: e
+        Let (BindK x x1 t1 e1) e -> Let <$> (BindK x x1 <$>: t1 <*>: e1) <*>: e
         Let (At x i y) e -> Let (At x i y) <$>: e
         Let (BinOp x op y1 y2) e -> Let (BinOp x op y1 y2) <$>: e
         Let (Unpack a x v) e -> Let <$> (Unpack a x <$>: v) <*>: e
-        Let (CTuple x vs) e -> Let <$> (CTuple x <$> traverse (getProj p) vs) <*>: e
         AppK x y -> pure $ AppK x y
         App x ts xs k ->
           App x <$> traverse (getProj p) ts <*> pure xs <*> pure k
         If x e1 e2 -> pure $ If x e1 e2
-        Halt x -> pure $ Halt x
         Loc l e -> Loc l <$>: e
 
 
-  mkPlate f = Plate (f pTy) (f pVal) (f pAbs) (f pTm)
+  mkPlate f = Plate (f pTy) (f pVal) (f pData) (f pTm)
 
 
 instance ProjOf Plate Ty where
@@ -192,8 +196,8 @@ instance ProjOf Plate Val where
   getProj = pVal
 
 
-instance ProjOf Plate Abs where
-  getProj = pAbs
+instance ProjOf Plate Data where
+  getProj = pData
 
 
 instance ProjOf Plate Tm where
@@ -225,44 +229,46 @@ instance TyOf Val where
     Pack _t1 _v t2 -> t2
 
 
-instance TyOf Abs where
+instance TyOf Data where
   tyOf (Abs as xs _k kt _e) = TFix as (xs ^.. each . _2) kt
+  tyOf (Tuple vs) = TTuple $ fmap tyOf vs
 
 
 ftv :: ProjOf Plate a => a -> S.Set TName
 ftv = foldFor plate
   where
-    plate = purePlate{pTy, pAbs}
+    plate = purePlate{pTy, pData}
     pTy = \case
       TVar a -> Const $ S.singleton a
       TFix as ts t -> Const $ foldMap ftv (t : ts) `S.difference` S.fromList as
       TExists x t -> Const $ S.delete x (ftv t)
       t -> traverseMFor (multiplate plate) t
-    pAbs = \case
+    pData = \case
       Abs as xs _k _kt e ->
         Const $ (foldMap (ftv . snd) xs <> ftv e) `S.difference` S.fromList as
+      Tuple vs -> Const $ foldMap ftv vs
 
 
 fv :: ProjOf Plate a => a -> M.Map Name Ty
 fv = foldFor plate
   where
-    plate = purePlate{pAbs, pVal, pTm}
-    pAbs = \case
-      Abs _as xs _k _kt e ->
-        Const $ foldr ((\y -> at y .~ Nothing) . (^. _1)) (fv e) xs
-
+    plate = purePlate{pVal, pData, pTm}
     pVal = \case
       Var x t -> Const $ M.singleton x t
       v -> traverseMFor (multiplate plate) v
 
+    pData = \case
+      Abs _as xs _k _kt e ->
+        Const $ foldr ((\y -> at y .~ Nothing) . (^. _1)) (fv e) xs
+      Tuple vs -> Const $ foldMap fv vs
+
     pTm = \case
       Let (Bind x v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
-      Let (BindK _k x _t e1) e -> Const $ (fv e1 & at x .~ Nothing) <> fv e
       Let (Rec xs) e -> Const $ (foldMap fv xs <> fv e) M.\\ xs
+      Let (BindK _k x _t e1) e -> Const $ (fv e1 & at x .~ Nothing) <> fv e
       Let (At x _i v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
       Let (BinOp x _p v1 v2) e -> Const $ fv v1 <> fv v2 <> (fv e & at x .~ Nothing)
       Let (Unpack _a x v) e -> Const $ fv v <> (fv e & at x .~ Nothing)
-      Let (CTuple x vs) e -> Const $ foldMap fv vs <> (fv e & at x .~ Nothing)
       e -> traverseMFor (multiplate plate) e
 
 
@@ -272,18 +278,6 @@ tsubst a t' = traverseFor $ preMap $ purePlate{pTy}
     pTy = \case
       TVar b | a == b -> pure t'
       t -> pure t
-
-
-subst :: (Uniq :> es, ProjOf Plate a) => M.Map Name Val -> a -> Eff es a
-subst sub = traverseMFor plate
-  where
-    plate = purePlate{pAbs}
-    pAbs = \case
-      Abs as xs k kt e -> do
-        xs' <- traverse (const freshName) xs
-        let xs'' = zip xs' (fmap snd xs)
-        let sub' = M.fromList $ zip (fmap fst xs) $ fmap (uncurry Var) xs''
-        Abs as xs'' k kt <$> subst (sub <> sub') e
 
 
 instance PP.Pretty Ty where
@@ -309,34 +303,34 @@ instance PP.Pretty Val where
       nest $ PP.sep ["pack" <+> brackets [pp t1, pp v] <+> "as", pp t2]
 
 
-instance PP.Pretty Abs where
-  pretty (Abs as xs k kt e) =
-    PP.group $
-      "\\"
-        <> (if null as then mempty else brackets (fmap pp as))
-        <> parens (fmap (\(x, v) -> pp x <+> ":" <+> pp v) xs)
-        <> braces [pp k <+> ":" <+> pp kt]
-        <> "."
-        <> nest (PP.line <> pp e)
+instance PP.Pretty Data where
+  pretty = \case
+    Abs as xs k kt e ->
+      PP.group $
+        "\\"
+          <> (if null as then mempty else brackets (fmap pp as))
+          <> parens (fmap (\(x, v) -> pp x <+> ":" <+> pp v) xs)
+          <> braces [pp k <+> ":" <+> pp kt]
+          <> "."
+          <> nest (PP.line <> pp e)
+    Tuple vs -> angles (fmap pp vs)
 
 
 ppDecl :: PP.Doc a -> PP.Doc a -> PP.Doc a
-ppDecl x v = nest $ PP.sep [x <+> PP.equals, v]
+ppDecl x v = nest $ PP.vsep [x <+> PP.equals, v]
 
 
 instance PP.Pretty Decl where
   pretty = \case
     Bind x v -> ppDecl (pp x) (pp v)
-    BindK x k t e -> ppDecl (pp x) ("\\" <> pp k <+> ":" <+> pp t <> "." <+> pp e)
     Rec xs ->
       "rec" <+> foldMap (\(x, v) -> ppDecl (pp x) (pp v)) (M.toList xs)
+    BindK x k t e -> ppDecl (pp x) ("\\" <> pp k <+> ":" <+> pp t <> "." <+> pp e)
     At x i v -> ppDecl (pp x) ("at" <+> pp i <+> pp v)
     BinOp x p' v1 v2 ->
       ppDecl (pp x) (PP.sep [parens [pp v1], pp p' <+> parens [pp v2]])
     Unpack a x v ->
       ppDecl (brackets [pp a, pp x]) ("unpack" <+> parens [pp v])
-    CTuple x ts ->
-      ppDecl (pp x) (angles (fmap pp ts))
 
 
 instance PP.Pretty Tm where
@@ -349,5 +343,9 @@ instance PP.Pretty Tm where
         <> parens (fmap pp xs)
         <> braces [pp k]
     If v e1 e2 -> "if" <> parens [pp v, pp e1, pp e2]
-    Halt v -> nest $ PP.sep ["halt", parens [pp v]]
     Loc l e -> pp e -- <+> fromString (sourcePosPretty l)]
+
+
+instance PP.Pretty TopLevel where
+  pretty (TopLevel datas) =
+    PP.vsep $ fmap (\(x, d) -> ppDecl (pp x) (pp d)) (M.toList datas)

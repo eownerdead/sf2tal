@@ -1,5 +1,6 @@
 module SF2TAL.Middle.Tc
-  ( ckTm
+  ( ckTopLevel
+  , ckTm
   )
 where
 
@@ -83,51 +84,53 @@ ckVal v = do
     else error "ty: type does not match"
 
 
-ckAbs :: Tc ann es => Abs -> Eff es Ty
-ckAbs (Abs as xs k tk e) =
-  local ((u_ <>~ M.fromList xs) . (k_ . at k ?~ tk)) do
-    _ <- ckTm' e
-    pure $ TFix as (fmap (^. _2) xs) tk
-
-
-ckDecl :: Tc ann es => Decl -> Eff es a -> Eff es a
-ckDecl d k = case d of
-  Bind x v -> do
-    tv <- ckVal v
-    local (u_ . at x ?~ tv) k
-  BindK x x1 t1 e1 -> do
-    local (u_ . at x1 ?~ t1) do
-      _ <- ckTm e1
-      local (k_ . at x ?~ t1) k
-  Rec xs -> do
-    local (u_ <>~ fmap tyOf xs) do
-      traverse_ ckAbs xs
-      k
-  At x i y ->
-    case tyOf y of
-      TTuple ts ->
-        if
-          | Just t <- ts ^? ix (i - 1) -> local (u_ . at x ?~ t) k
-          | otherwise -> err ["Invalid index", pp d]
-      t -> err ["Indexing a non-tuple value:" <+> pp t, pp d]
-  BinOp x _p x1 x2 -> do
-    when (tyOf x1 /= TInt) do err ["LHS is not int, but" <+> pp (tyOf x1), pp d]
-    when (tyOf x2 /= TInt) do err ["RHS is not int, but" <+> pp (tyOf x2), pp d]
-    local (u_ . at x ?~ TInt) k
-  Unpack a x y ->
-    case tyOf y of
-      TExists a' t -> local (u_ . at x ?~ tsubst a' (TVar a) t) k
-      t -> err ["Unpacking non-existential value:" <+> pp t, pp d]
-  CTuple x vs -> local (u_ . at x ?~ TTuple (fmap tyOf vs)) k
+ckData :: Tc ann es => Data -> Eff es Ty
+ckData = \case
+  Abs as xs k tk e ->
+    local ((u_ <>~ M.fromList xs) . (k_ . at k ?~ tk)) do
+      _ <- ckTm e
+      pure $ TFix as (fmap (^. _2) xs) tk
+  Tuple vs -> pure $ TTuple $ fmap tyOf vs
 
 
 ckTm' :: Tc ann es => Tm -> Eff es ()
-ckTm' = \case
-  Let d e -> do
-    ckDecl d $ ckTm' e
-    pure ()
+ckTm' expr = case expr of
+  Let (Bind x v) e -> do
+    _ <- ckVal v
+    local (u_ . at x ?~ tyOf v) do ckTm' e
+  Let (Rec xs) e -> do
+    let ts = fmap tyOf xs
+    local (u_ <>~ fmap tyOf xs) do
+      ts' <- traverse ckData xs
+      when (ts /= ts') $
+        err
+          [ "Type of rec does not match"
+          , pp expr
+          , "expected:" <+> ppMap ":" ts
+          , "actual:" <+> ppMap ":" ts'
+          ]
+      ckTm' e
+  Let (BindK x x1 t1 e1) e -> do
+    local (u_ . at x1 ?~ t1) do
+      _ <- ckTm' e1
+      local (k_ . at x ?~ t1) $ ckTm' e
+  Let (At x i y) e ->
+    case tyOf y of
+      TTuple ts ->
+        if
+          | Just t <- ts ^? ix (i - 1) -> local (u_ . at x ?~ t) $ ckTm' e
+          | otherwise -> err ["Invalid index", pp expr]
+      t -> err ["Indexing a non-tuple value:" <+> pp t, pp expr]
+  Let (BinOp x _p x1 x2) e -> do
+    when (tyOf x1 /= TInt) do err ["LHS is not int, but" <+> pp (tyOf x1), pp expr]
+    when (tyOf x2 /= TInt) do err ["RHS is not int, but" <+> pp (tyOf x2), pp expr]
+    local (u_ . at x ?~ TInt) $ ckTm' e
+  Let (Unpack a x y) e ->
+    case tyOf y of
+      TExists a' t -> local (u_ . at x ?~ tsubst a' (TVar a) t) $ ckTm' e
+      t -> err ["Unpacking non-existential value:" <+> pp t, pp expr]
   AppK _k _x -> pure ()
-  e@(App x bs xs _k) ->
+  App x bs xs _k ->
     case tyOf x of
       TFix as ts _tk ->
         forM_ (zip ts xs) \(t1, x1) -> do
@@ -137,15 +140,20 @@ ckTm' = \case
               [ "Type of a argument does not match:" <+> pp x1
               , "expected:" <+> pp t'
               , "actual: " <+> pp (tyOf x1)
-              , pp e
+              , pp expr
               ]
-      _ -> err ["Applying a non-function value", pp e]
-  e@(If x _k1 _k2) -> do
+      _ -> err ["Applying a non-function value", pp expr]
+  If x _k1 _k2 -> do
     when (tyOf x /= TInt) do
-      err ["Type of the condition is not int, but" <+> pp (tyOf x), pp e]
-  Halt _ -> pure ()
+      err ["Type of the condition is not int, but" <+> pp (tyOf x), pp expr]
   Loc _ e -> ckTm' e
 
 
 ckTm :: Tm -> Eff es ()
-ckTm e = runReader (Env{u_ = mempty, k_ = mempty}) do ckTm' e
+ckTm e = runReader (Env{u_ = mempty, k_ = mempty}) do
+  ckTm' e
+
+
+ckTopLevel :: TopLevel -> Eff es ()
+ckTopLevel (TopLevel fs) = runReader (Env{u_ = mempty, k_ = mempty}) do
+  traverse_ ckData fs

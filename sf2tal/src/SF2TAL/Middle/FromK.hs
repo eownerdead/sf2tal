@@ -16,16 +16,22 @@ errorK :: Show a => a -> b
 errorK x = error $ "not in K: " <> show x
 
 
-type KnowCl = [Ty] -> [Val] -> KName -> Tm
+type Call = [Ty] -> [Val] -> KName -> Tm
 
 
-newtype CEnv = CEnv {knownCls :: M.Map Name KnowCl}
+newtype CEnv = CEnv
+  { knownCls :: M.Map Name Call
+  }
 
 
 $(makeFieldsId 'CEnv)
 
 
-type C es = (Uniq :> es, Writer (M.Map Name Abs) :> es, Reader CEnv :> es)
+type C es =
+  ( Uniq :> es
+  , Writer (M.Map Name Data) :> es
+  , Reader CEnv :> es
+  )
 
 
 cTy :: C es => Ty -> Eff es Ty
@@ -41,54 +47,94 @@ cTy = \case
   TExists a t -> TExists a <$> cTy t
 
 
-cProg :: Uniq :> es => Tm -> Eff es Tm
-cProg p = do
-  (e, xs) <- runWriter $ runReader (CEnv{knownCls = mempty}) do cExp p
-  pure $ Let (Rec xs) e
+cProg :: Uniq :> es => Tm -> Eff es TopLevel
+cProg e = do
+  (e', xs) <- runWriter $ runReader (CEnv{knownCls = mempty}) do
+    cExp e
+  pure $
+    TopLevel (M.insert (Name "sf2talMain" 0) (Abs [] [] (Name "k" 0) TInt e') xs)
+
+
+data DataW = DataW
+  { cls :: M.Map Name Data
+  , knownCls :: M.Map Name Call
+  , substs :: M.Map Name Val
+  }
+
+
+instance Semigroup DataW where
+  DataW c1 k1 s1 <> DataW c2 k2 s2 =
+    DataW (c1 <> c2) (k1 <> k2) (s1 <> s2)
+
+
+instance Monoid DataW where
+  mempty = DataW mempty mempty mempty
+  mappend = (<>)
+
+
+cData ::
+  (C es, Writer DataW :> es) =>
+  Name ->
+  Name ->
+  Ty ->
+  Data ->
+  Eff es (Name, (Tm -> Tm) -> Data)
+cData x vEnv tEnv = \case
+  v@(Abs as xs k tk e) -> do
+    ts' <- traverse (cTy . snd) xs
+    let bs = S.toList $ ftv v
+    let eVCode withEnv = Abs (bs <> as) ((vEnv, tEnv) : zip (fmap fst xs) ts') k tk do
+          withEnv e
+    let tRawCode = TFix (bs <> as) (tEnv : ts') tk
+    vCode <- Name (prettyText x <> ".zCode") <$> fresh
+    cl' <- freshName
+    tv <- cTy (tyOf v)
+    let dCl' =
+          Tuple [Var vCode tRawCode `appT` fmap TVar bs, Var vEnv tEnv]
+    let cl = Pack tEnv (Var cl' $ TTuple [tRawCode, tEnv]) tv
+    zEnv <- Name "zEnv" <$> fresh
+    let call ts vs k' =
+          Let (Rec $ M.singleton zEnv $ Tuple []) $
+            App
+              ((Var vCode tRawCode `appT` fmap TVar bs) `appT` ts)
+              []
+              (Var zEnv (TTuple []) : vs)
+              k'
+    tell $
+      DataW
+        { cls = M.singleton cl' dCl'
+        , knownCls = M.singleton x call
+        , substs = M.singleton x cl
+        }
+    pure (vCode, eVCode)
+  Tuple vs -> pure (x, const $ Tuple vs)
 
 
 cExp :: C es => Tm -> Eff es Tm
 cExp = \case
   Let (Rec fs) e1 -> do
-    fs' <- traverse (\(Abs as xs' k tk e) -> Abs as xs' k tk <$> cExp e) fs
+    fs' <- forM fs \case
+      Abs as xs' k tk e -> Abs as xs' k tk <$> cExp e
+      Tuple ts -> pure $ Tuple ts
     let fvs = M.toList $ fv $ Let (Rec fs') e1
     vEnv <- Name "vEnv" <$> fresh
-    dVEnv <- CTuple vEnv <$> mapM (\(y, s) -> Var y <$> cTy s) fvs
+    dVEnv <- Tuple <$> mapM (\(y, s) -> Var y <$> cTy s) fvs
     tEnv <- TTuple <$> traverse (cTy . snd) fvs
     let withZEnv e' =
           foldr
             (\(i, y) -> Let (At y i $ Var vEnv tEnv))
             e'
             (zip [1 ..] $ fmap fst fvs)
-    fs'' <- (`M.traverseWithKey` fs') \x v@(Abs as xs' k tk e) -> do
-      ts' <- traverse (cTy . snd) xs'
-      let bs = S.toList $ ftv v
-      let eVCode withCls = Abs (bs <> as) ((vEnv, tEnv) : zip (fmap fst xs') ts') k tk do
-            withCls $ withZEnv e
-      let tRawCode = TFix (bs <> as) (tEnv : ts') tk
-      vCode <- Name (prettyText x <> ".zCode") <$> fresh
-      cl <- freshName
-      tv <- cTy (tyOf v)
-      let packCl =
-            Let (CTuple cl [Var vCode tRawCode `appT` fmap TVar bs, Var vEnv tEnv])
-              . Let (Bind x (Pack tEnv (Var cl $ TTuple [tRawCode, tEnv]) tv))
-      zEnv <- Name "zEnv" <$> fresh
-      let call ts vs k' =
-            Let (CTuple zEnv []) $
-              App
-                ((Var vCode tRawCode `appT` fmap TVar bs) `appT` ts)
-                []
-                (Var zEnv (TTuple []) : vs)
-                k'
-      pure (vCode, eVCode, packCl, call)
-    let packCls e = foldr (\(_, _, v, _) -> v) e fs''
-    forM_ fs'' \(vCode, eVCode, _, _) -> tell $ M.singleton vCode (eVCode packCls)
-    local
-      (knownCls <>~ if null fvs then fmap (\(_, _, _, call) -> call) fs'' else mempty)
-      do
-        Let dVEnv . packCls <$> cExp e1
+    (fs'', DataW cls known sub) <- runWriter do
+      (`M.traverseWithKey` fs') \x d -> cData x vEnv tEnv d
+    let binds e' = foldr (\(x, v) -> Let $ Bind x v) e' $ M.toList sub
+    forM_ fs'' \(vCode, eVCode) ->
+      tell $ M.singleton vCode $ eVCode $ Let (Rec cls) . binds . withZEnv
+    let known' = if null fvs then known else mempty
+    local (knownCls <>~ known') do
+      Let (Rec $ M.insert vEnv dVEnv cls) . binds <$> cExp e1
   Let d e -> Let <$> cDec d <*> cExp e
-  AppK k v -> pure $ AppK k v
+  AppK k v -> AppK k <$> cVal v
   App v ts vs k
     | Var f t <- v -> do
         v' <- cVal v
@@ -116,7 +162,6 @@ cExp = \case
                 t' -> error $ "not TExists: " <> show t'
     | otherwise -> error "Calling non-variable value in K"
   If v k1 k2 -> If <$> cVal v <*> pure k1 <*> pure k2
-  Halt v -> Halt <$> cVal v
   Loc l e -> Loc l <$> cExp e
 
 
@@ -128,7 +173,6 @@ cDec = \case
   BinOp x p v1 v2 -> BinOp x p <$> cVal v1 <*> cVal v2
   d@Rec{} -> errorK d
   d@Unpack{} -> errorK d
-  CTuple x vs -> CTuple x <$> traverse cVal vs
 
 
 cVal :: C es => Val -> Eff es Val

@@ -35,11 +35,6 @@ kTy = \case
   F.TTuple ts -> TTuple <$> traverse kTy ts
 
 
-kProg :: Uniq :> es => F.Tm -> Eff es Tm
-kProg v = evalState mempty do
-  kExp v (pure . Halt)
-
-
 -- η-expansion
 expand :: K es => (Val -> Eff es Tm) -> Ty -> (KName -> Eff es Tm) -> Eff es Tm
 expand k t k' = do
@@ -49,7 +44,7 @@ expand k t k' = do
   Let (BindK c x t kk) <$> k' c
 
 
-kAbs :: K es => F.Tm -> Eff es Abs
+kAbs :: K es => F.Tm -> Eff es Data
 kAbs = \case
   F.Abs x1 (Just t) e -> do
     t1' <- kTy t
@@ -96,7 +91,7 @@ kExp e k = case e of
     x <- freshName
     foldr
       (\v k' vs' -> kExp v \x' -> k' (x' : vs'))
-      (\xs -> Let (CTuple x xs) <$> k (Var x t))
+      (\xs -> Let (Rec $ M.singleton x (Tuple xs)) <$> k (Var x t))
       vs
       []
   F.At i e'
@@ -123,3 +118,8 @@ kExp e k = case e of
             If x k1' k2'
   F.Loc l e' -> Loc l <$> kExp e' k
   _ -> error $ docStr $ "kExp: " <> pp e
+
+
+kProg :: Uniq :> es => F.Tm -> Eff es Tm
+kProg e = evalState mempty do
+  kExp e (pure . AppK (Name "k" 0))

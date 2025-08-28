@@ -1,5 +1,5 @@
 module SF2TAL.Middle.Opt
-  ( oProg
+  ( oTopLevel
   )
 where
 
@@ -33,7 +33,9 @@ oVal = \case
     preview (substs . ix x) >>= \case
       Just v -> pure v
       Nothing -> do
-        occurs . at x %= fmap (+ 1)
+        occurs . at x %= \case
+          Just n -> Just $ n + 1
+          Nothing -> Just 1
         pure $ Var x t
   IntLit i -> pure $ IntLit i
   AppT v t -> do
@@ -69,16 +71,19 @@ oTm :: Opt es => Tm -> Eff es Tm
 oTm = \case
   Let (Bind x v) e -> do
     v' <- oVal v
-    occurs . at x .= Nothing
     e' <- oTm e
     rebuildLet x (Bind x v') e'
+  Let (Rec ds) e -> do
+    ds' <- oHVal ds
+    e' <- oTm e
+    occurs %= (M.\\ ds)
+    pure $ Let (Rec ds') e'
   Let (BindK k x t e1) e -> do
     e' <- oTm e
     x' <- preuse (occurs . ix x)
     e1' <- oTm e1
     occurs . at x .= x'
     pure $ Let (BindK k x t e1') e'
-  Let (Rec _) _ -> error ""
   Let (At x i v) e -> do
     v' <- oVal v
     e' <- oTm e
@@ -96,35 +101,30 @@ oTm = \case
     e' <- oTm e
     occurs . at x .= Nothing
     pure $ Let (Unpack a x v') e'
-  Let (CTuple x vs) e -> do
-    vs' <- traverse oVal vs
-    e' <- oTm e
-    rebuildLet x (CTuple x vs') e'
   k `AppK` v -> (k `AppK`) <$> oVal v
   App v ts vs k -> do
     v' <- oVal v
     vs' <- traverse oVal vs
     pure $ App v' ts vs' k
-  If v k1 k2 ->
+  If v k1 k2 -> do
     oVal v <&> \case
       IntLit 0 -> k2 `AppK` IntLit 0
       IntLit _ -> k1 `AppK` IntLit 0
       v' -> If v' k1 k2
-  Halt v -> Halt <$> oVal v
   Loc l e -> Loc l <$> oTm e
 
 
-oHVal :: Opt es => Tm -> Eff es Tm
-oHVal = \case
-  Let (Rec fs) e -> do
-    fs' <- forM fs \(Abs as xs k tk e1) -> do
+oHVal :: Opt es => M.Map Name Data -> Eff es (M.Map Name Data)
+oHVal ds = do
+  ds' <- forM ds \case
+    Abs as xs k tk e1 -> do
       e1' <- oTm e1
+      occurs %= (M.\\ M.fromList xs)
       pure $ Abs as xs k tk e1'
-    e' <- oTm e
-    pure $ Let (Rec fs') e'
-  _ -> error ""
+    Tuple vs -> Tuple <$> traverse oVal vs
+  pure ds'
 
 
-oProg :: Tm -> Eff es Tm
-oProg p = runReader (DEnv{substs = mempty}) $
-  evalState (DAcc{occurs = mempty}) do oHVal p
+oTopLevel :: TopLevel -> Eff es TopLevel
+oTopLevel (TopLevel ds) = runReader (DEnv{substs = mempty}) $
+  evalState (DAcc{occurs = mempty}) do TopLevel <$> oHVal ds

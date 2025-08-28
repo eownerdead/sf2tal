@@ -23,7 +23,9 @@ deriving stock instance Show (Name_ s)
 
 
 instance PP.Pretty (Name_ s) where
-  pretty Name{name, uniq} = pp name <> "." <> pp uniq
+  pretty Name{name, uniq}
+    | uniq == 0 = pp name
+    | otherwise = pp name <> "." <> pp uniq
 
 
 freshName :: Uniq :> es => Eff es (Name_ s)

@@ -1,5 +1,5 @@
 module SF2TAL.Llvm
-  ( lProg
+  ( lTopLevel
   )
 where
 
@@ -61,35 +61,30 @@ lTFix = \case
   _ -> error "TFix expected"
 
 
-lProg :: IOE :> es => Tm -> Eff es L.ModuleRef
-lProg p = do
+lTopLevel :: IOE :> es => TopLevel -> Eff es L.ModuleRef
+lTopLevel top = do
   L.runContext do
     ((), r) <- L.createModule "main" $
       evalState (LlvmState{phis = mempty}) $
         runReader (LlvmEnv{vars = mempty, conts = mempty}) do
-          lProg' p
+          lTopLevel' top
     pure r
 
 
-lProg' :: (ToLlvm es, L.Module :> es, L.Context :> es) => Tm -> Eff es ()
-lProg' = \case
-  Let (Rec fs) e -> do
-    fs' <- flip M.traverseWithKey fs \x (Abs _as xs _k tk _e1) -> do
-      ts' <- traverse (lTy . snd) xs
-      tk' <- lTy tk
-      t' <- L.functionType False tk' ts'
-      L.newFunction (prettyText x) t'
-    _ <- local (vars <>~ fs') do
-      _ <- flip M.traverseWithKey fs \x (Abs _as xs _k _tk e1) -> do
-        let f = fs' M.! x
-        L.defineFunction f \xs' -> do
-          local (vars <>~ M.fromList (zip (fmap fst xs) xs')) $ lExp e1
-      t <- L.int64Type >>= \ti -> L.functionType False ti []
-      f <- L.newFunction "sf2talMain" t
-      L.defineFunction f \_ -> do
-        lExp e
+lTopLevel' ::
+  (ToLlvm es, L.Module :> es, L.Context :> es) => TopLevel -> Eff es ()
+lTopLevel' (TopLevel fs) = do
+  fs' <- flip M.traverseWithKey fs \x (Abs _as xs _k tk _e1) -> do
+    ts' <- traverse (lTy . snd) xs
+    tk' <- lTy tk
+    t' <- L.functionType False tk' ts'
+    L.newFunction (prettyText x) t'
+  local (vars <>~ fs') do
+    _ <- flip M.traverseWithKey fs \x (Abs _as xs _k _tk e1) -> do
+      let f = fs' M.! x
+      L.defineFunction f \xs' -> do
+        local (vars <>~ M.fromList (zip (fmap fst xs) xs')) $ lExp e1
     pure ()
-  _ -> error "Top-level is not LetRec"
 
 
 lVal :: (ToLlvm es, L.Context :> es) => Val -> Eff es L.ValueRef
@@ -109,6 +104,25 @@ lExp = \case
     Bind x v -> do
       v' <- lVal v
       local (vars . at x ?~ v') do lExp e
+    Rec ds -> do
+      vs' <- (`M.traverseWithKey` ds) \x -> \case
+        Tuple vs -> do
+          ts' <- lTTuple $ TTuple $ fmap tyOf vs
+          L.buildMalloc (prettyText x) ts'
+        Abs{} -> error "Abs in non-toplevel"
+      local (vars <>~ vs') do
+        _ <- (`M.traverseWithKey` ds) \x -> \case
+          Tuple vs -> do
+            ts' <- lTTuple $ TTuple $ fmap tyOf vs
+            v' <- fromJust <$> preview (vars . ix x)
+            forM_ (zip vs [1 ..]) \(vi, i) -> do
+              vi' <- lVal vi
+              i' <- L.int64Type >>= \ti -> L.constInt True ti (i - 1)
+              vd <- L.buildGEP2 "" ts' v' [i']
+              L.buildStore vi' vd
+            pure v'
+          Abs{} -> error "Abs in non-toplevel"
+        lExp e
     BindK k x t e1 -> do
       t' <- lTy t
       f <- L.builderFunction
@@ -153,16 +167,6 @@ lExp = \case
     Unpack _a x v -> do
       v' <- lVal v
       local (vars . at x ?~ v') do lExp e
-    CTuple x vs -> do
-      ts' <- lTTuple $ TTuple $ fmap tyOf vs
-      v' <- L.buildMalloc (prettyText x) ts'
-      forM_ (zip vs [1 ..]) \(vi, i) -> do
-        vi' <- lVal vi
-        i' <- L.int64Type >>= \ti -> L.constInt True ti (i - 1)
-        vd <- L.buildGEP2 "" ts' v' [i']
-        L.buildStore vi' vd
-      local (vars . at x ?~ v') do lExp e
-    Rec _xs -> error "LetRec in non top-level"
   AppK k v -> do
     bbCur <- L.getInsertBlock
     v' <- lVal v
@@ -189,9 +193,5 @@ lExp = \case
     bb1 <- fromJust <$> preview (conts . ix k1)
     bb2 <- fromJust <$> preview (conts . ix k2)
     _ <- L.buildCondBr cmp bb1 bb2
-    pure ()
-  Halt v -> do
-    v' <- lVal v
-    _ <- L.buildRet v'
     pure ()
   Loc _l e -> lExp e

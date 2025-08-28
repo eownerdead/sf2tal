@@ -41,16 +41,16 @@ compile s = do
   c <- M.cProg k
   logMsg Debug $ docText $ pp c
   logMsg Info "Verifying lambda C"
-  M.ckTm c
+  M.ckTopLevel c
 
   logMsg Info "Optimising lambda C"
-  c' <- M.oProg c
+  c' <- M.oTopLevel c
   logMsg Debug $ docText $ pp c'
   logMsg Info "Verifying lambda C'"
-  M.ckTm c
+  M.ckTopLevel c'
 
   logMsg Info "Converting to LLVM IR"
-  m <- L.lProg c
+  m <- L.lTopLevel c'
   liftIO $ L.dumpModule m
   logMsg Info "Verifying LLVM IR"
   _ <- liftIO $ L.verifyModule m L.PrintMessageAction nullPtr
