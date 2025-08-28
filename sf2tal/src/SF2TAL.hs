@@ -43,6 +43,12 @@ compile s = do
   logMsg Info "Verifying lambda C"
   M.ckTm c
 
+  logMsg Info "Optimising lambda C"
+  c' <- M.oProg c
+  logMsg Debug $ docText $ pp c'
+  logMsg Info "Verifying lambda C'"
+  M.ckTm c
+
   logMsg Info "Converting to LLVM IR"
   m <- L.lProg c
   liftIO $ L.dumpModule m

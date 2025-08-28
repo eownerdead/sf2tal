@@ -1,0 +1,130 @@
+module SF2TAL.Middle.Opt
+  ( oProg
+  )
+where
+
+import Data.Map qualified as M
+import Effectful.Reader.Static.Microlens
+import Effectful.State.Static.Local.Microlens
+import SF2TAL.Middle.Middle
+import SF2TAL.Prelude
+
+
+newtype DEnv = DEnv
+  { substs :: M.Map Name Val
+  }
+
+
+newtype DAcc = DAcc
+  { occurs :: M.Map Name Int
+  }
+
+
+$(makeFieldsId 'DEnv)
+$(makeFieldsId 'DAcc)
+
+
+type Opt es = (Reader DEnv :> es, State DAcc :> es)
+
+
+oVal :: Opt es => Val -> Eff es Val
+oVal = \case
+  Var x t ->
+    preview (substs . ix x) >>= \case
+      Just v -> pure v
+      Nothing -> do
+        occurs . at x %= fmap (+ 1)
+        pure $ Var x t
+  IntLit i -> pure $ IntLit i
+  AppT v t -> do
+    v' <- oVal v
+    pure $ AppT v' t
+  Pack t1 v t2 -> do
+    v' <- oVal v
+    pure $ Pack t1 v' t2
+
+
+rebuildLet :: Opt es => Name -> Decl -> Tm -> Eff es Tm
+rebuildLet x d e = do
+  e' <-
+    preuse (occurs . ix x) <&> \case
+      Just _ -> Let d e
+      Nothing -> e
+  occurs . at x .= Nothing
+  pure e'
+
+
+evalBinOp :: BinOps -> Int -> Int -> Int
+evalBinOp p i1 i2 = case p of
+  BAdd -> i1 + i2
+  BSub -> i1 - i2
+  BMul -> i1 * i2
+  BEq -> fromEnum $ i1 == i2
+  BNe -> fromEnum $ i1 /= i2
+  BLt -> fromEnum $ i1 < i2
+  BLe -> fromEnum $ i1 <= i2
+
+
+oTm :: Opt es => Tm -> Eff es Tm
+oTm = \case
+  Let (Bind x v) e -> do
+    v' <- oVal v
+    occurs . at x .= Nothing
+    e' <- oTm e
+    rebuildLet x (Bind x v') e'
+  Let (BindK k x t e1) e -> do
+    e' <- oTm e
+    x' <- preuse (occurs . ix x)
+    e1' <- oTm e1
+    occurs . at x .= x'
+    pure $ Let (BindK k x t e1') e'
+  Let (Rec _) _ -> error ""
+  Let (At x i v) e -> do
+    v' <- oVal v
+    e' <- oTm e
+    rebuildLet x (At x i v') e'
+  Let (BinOp x p v1 v2) e -> do
+    v1' <- oVal v1
+    v2' <- oVal v2
+    e' <- case (v1', v2') of
+      (IntLit i1, IntLit i2) ->
+        local (substs . at x ?~ IntLit (evalBinOp p i1 i2)) $ oTm e
+      _ -> oTm e
+    rebuildLet x (BinOp x p v1' v2') e'
+  Let (Unpack a x v) e -> do
+    v' <- oVal v
+    e' <- oTm e
+    occurs . at x .= Nothing
+    pure $ Let (Unpack a x v') e'
+  Let (CTuple x vs) e -> do
+    vs' <- traverse oVal vs
+    e' <- oTm e
+    rebuildLet x (CTuple x vs') e'
+  k `AppK` v -> (k `AppK`) <$> oVal v
+  App v ts vs k -> do
+    v' <- oVal v
+    vs' <- traverse oVal vs
+    pure $ App v' ts vs' k
+  If v k1 k2 ->
+    oVal v <&> \case
+      IntLit 0 -> k2 `AppK` IntLit 0
+      IntLit _ -> k1 `AppK` IntLit 0
+      v' -> If v' k1 k2
+  Halt v -> Halt <$> oVal v
+  Loc l e -> Loc l <$> oTm e
+
+
+oHVal :: Opt es => Tm -> Eff es Tm
+oHVal = \case
+  Let (Rec fs) e -> do
+    fs' <- forM fs \(Abs as xs k tk e1) -> do
+      e1' <- oTm e1
+      pure $ Abs as xs k tk e1'
+    e' <- oTm e
+    pure $ Let (Rec fs') e'
+  _ -> error ""
+
+
+oProg :: Tm -> Eff es Tm
+oProg p = runReader (DEnv{substs = mempty}) $
+  evalState (DAcc{occurs = mempty}) do oHVal p

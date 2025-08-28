@@ -81,6 +81,7 @@ library sf2tal-lib
     SF2TAL.F.Tc,
     SF2TAL.F.Parse,
     SF2TAL.Middle.Middle,
+    SF2TAL.Middle.Opt,
     SF2TAL.Middle.Tc,
     SF2TAL.Middle.FromF,
     SF2TAL.Middle.FromK,
