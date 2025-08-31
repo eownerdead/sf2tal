@@ -16,7 +16,6 @@ where
 
 import Data.Map qualified as M
 import Data.Set qualified as S
-import Data.Text qualified as T
 import Prettyprinter qualified as PP
 import SF2TAL.Name
 import SF2TAL.PP
@@ -25,7 +24,10 @@ import SF2TAL.Prelude
 import Text.Megaparsec (SourcePos, sourcePosPretty)
 
 
-type TName = T.Text
+data T_
+
+
+type TName = Name_ T_
 
 
 data U_

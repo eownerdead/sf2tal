@@ -25,15 +25,12 @@ where
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Prettyprinter qualified as PP
-import SF2TAL.F (BinOps (..), Name)
+import SF2TAL.F (BinOps (..), Name, TName)
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
 import SF2TAL.Prelude
 import Text.Megaparsec (SourcePos)
-
-
-type TName = Int
 
 
 data K_

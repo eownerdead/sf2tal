@@ -4,34 +4,23 @@ module SF2TAL.Middle.FromF
 where
 
 import Data.Map qualified as M
-import Effectful.State.Static.Local.Microlens
 import SF2TAL.F qualified as F
 import SF2TAL.Middle.Middle
 import SF2TAL.PP
 import SF2TAL.Prelude
 
 
-type K es = (Uniq :> es, State (M.Map F.TName Int) :> es)
-
-
-freshen :: K es => F.TName -> Eff es Int
-freshen x =
-  preuse (ix x) >>= \case
-    Just x' -> pure x'
-    Nothing -> do
-      x' <- fresh
-      state \s -> (x', s & at x ?~ x')
+type K es = (Uniq :> es)
 
 
 kTy :: K es => F.Ty -> Eff es Ty
 kTy = \case
-  F.TVar a -> TVar <$> freshen a
+  F.TVar a -> pure $ TVar a
   F.TInt -> pure TInt
   t1 `F.TFun` t2 -> TFix mempty <$> sequenceA [kTy t1] <*> kTy t2
   F.TForall a t -> do
-    a' <- freshen a
     t' <- kTy t
-    pure $ TFix [a'] [] t'
+    pure $ TFix [a] [] t'
   F.TTuple ts -> TTuple <$> traverse kTy ts
 
 
@@ -52,10 +41,9 @@ kAbs = \case
     c <- Name "k" <$> fresh
     Abs [] [(x1, t1')] c t2' <$> kExp e (pure . AppK c)
   F.AbsT a e -> do
-    a' <- freshen a
     t' <- kTy $ F.tyOf e
     c <- Name "k" <$> fresh
-    Abs [a'] [] c t' <$> kExp e (pure . AppK c)
+    Abs [a] [] c t' <$> kExp e (pure . AppK c)
   F.Loc _ e -> kAbs e
   e -> error $ docStr $ "kAbs:" <+> pp e
 
@@ -121,5 +109,4 @@ kExp e k = case e of
 
 
 kProg :: Uniq :> es => F.Tm -> Eff es Tm
-kProg e = evalState mempty do
-  kExp e (pure . AppK (Name "k" 0))
+kProg e = kExp e (pure . AppK (Name "k" 0))

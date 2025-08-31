@@ -71,11 +71,15 @@ type Tau = Ty -- No forall anywhere
 
 
 freshTName :: Uniq :> es => Eff es TName
-freshTName = int2Text <$> fresh
+freshTName = Name "" <$> fresh
 
 
 freshMeta :: Uniq :> es => Eff es Ty
-freshMeta = TVar . ("_" <>) <$> freshTName
+freshMeta = TVar . Name "." <$> fresh
+
+
+isMeta :: TName -> Bool
+isMeta (Name s _) = T.isPrefixOf "." s
 
 
 readMeta :: Tc es => TName -> Eff es (Maybe Ty)
@@ -89,13 +93,13 @@ writeMeta a t = at a .= Just t
 metaTvs :: (Tc es, Traversable f) => f Ty -> Eff es (S.Set TName)
 metaTvs ts = do
   ts' <- fold <$> traverse (fmap ftv . zonk) ts
-  pure $ S.filter (T.isPrefixOf "_") ts'
+  pure $ S.filter (\(Name s _) -> T.isPrefixOf "." s) ts'
 
 
 ftvs :: Tc es => [Ty] -> Eff es (S.Set TName)
 ftvs ts = do
   ts' <- fold <$> traverse (fmap ftv . zonk) ts
-  pure $ S.filter (not . T.isPrefixOf "_") ts'
+  pure $ S.filter (\(Name s _) -> not $ T.isPrefixOf "." s) ts'
 
 
 -- Type scheme
@@ -129,7 +133,7 @@ zonk = traverseMFor $ postMap purePlate{pTy}
   where
     pTy = \case
       TVar a
-        | T.isPrefixOf "_" a -> do
+        | isMeta a -> do
             readMeta a >>= \case
               Nothing -> pure $ TVar a
               Just t -> do
@@ -162,8 +166,8 @@ unify :: Tc es => Tau -> Tau -> Eff es ()
 unify s t = case (s, t) of
   (TVar a, TVar b)
     | a == b -> pure ()
-  (TVar a, t2) | T.isPrefixOf "_" a -> unifyVar a t2
-  (t1, TVar b) | T.isPrefixOf "_" b -> unifyVar b t1
+  (TVar a, t2) | isMeta a -> unifyVar a t2
+  (t1, TVar b) | isMeta b -> unifyVar b t1
   (TInt, TInt) -> pure ()
   (TFun s1 s2, TFun t1 t2) -> unify s1 t1 >> unify s2 t2
   (TTuple ss, TTuple ts) -> traverse_ (uncurry unify) (zip ss ts)
@@ -176,7 +180,7 @@ unify s t = case (s, t) of
         Nothing -> unifyUbVar a1 t2
 
     unifyUbVar :: Tc es => TName -> Tau -> Eff es ()
-    unifyUbVar a1 t2@(TVar b1) | T.isPrefixOf "_" b1 = do
+    unifyUbVar a1 t2@(TVar b1) | isMeta b1 = do
       preuse (ix b1) >>= \case
         Just t2' -> unify (TVar a1) t2'
         Nothing -> writeMeta a1 t2

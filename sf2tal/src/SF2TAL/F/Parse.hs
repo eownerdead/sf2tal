@@ -32,16 +32,12 @@ reserved :: S.Set T.Text
 reserved = S.fromList ["int", "at", "let", "and", "in", "if0", "then", "else"]
 
 
-tIdent :: Parser TName
-tIdent = label "identifier" $ try do
+ident :: Parser (Name_ u)
+ident = label "identifier" $ try do
   s <- tok $ T.cons <$> letterChar <*> takeWhileP Nothing isAlphaNum
   if S.member s reserved
     then unexpected $ Label $ NE.fromList $ "reserved word " <> T.unpack s
-    else pure s
-
-
-ident :: Parser Name
-ident = Name <$> tIdent <*> pure 0
+    else pure $ Name s 0
 
 
 kw :: T.Text -> Parser ()
@@ -55,7 +51,7 @@ sym = void . L.symbol ws
 tSimp :: Parser Ty
 tSimp =
   choice
-    [ TVar <$> tIdent
+    [ TVar <$> ident
     , TInt <$ kw "int"
     , TTuple <$> between (sym "<") (sym ">") (sepEndBy ty (sym ","))
     , between (sym "(") (sym ")") ty
@@ -72,7 +68,7 @@ tOps =
 ty :: Parser Ty
 ty =
   label "type" . choice $
-    [ TForall <$> (kw "forall" *> tIdent <* sym ".") <*> ty
+    [ TForall <$> (kw "forall" *> ident <* sym ".") <*> ty
     , tOps
     ]
 

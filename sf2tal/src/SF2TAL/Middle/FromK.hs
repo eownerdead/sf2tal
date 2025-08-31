@@ -39,7 +39,7 @@ cTy = \case
   TVar a -> pure $ TVar a
   TInt -> pure TInt
   TFix as ts t -> do
-    b <- fresh
+    b <- freshName
     ts' <- traverse cTy ts
     t' <- cTy t
     pure $ TExists b $ TTuple [TFix as (TVar b : ts') t', TVar b]
