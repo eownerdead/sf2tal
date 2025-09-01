@@ -53,8 +53,8 @@ kExp e k = case e of
   F.Var x (Just t) -> k . Var x =<< kTy t
   F.Var x Nothing -> error $ "Unannotated variable: " <> docStr (pp x)
   F.IntLit i -> k $ IntLit i
-  F.LetRec xs e' -> do
-    xs' <- traverse kAbs xs
+  F.LetRec (F.Decls _ts es) e' -> do
+    xs' <- traverse kAbs es
     Let (Rec xs') <$> kExp e' k
   F.Abs{} -> do
     x <- freshName

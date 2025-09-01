@@ -55,9 +55,9 @@ ck' e = do
         Nothing -> err ["Unbound variable", pp e]
     Var _ Nothing -> err ["Unannotated variable", pp e]
     IntLit _ -> pure TInt
-    LetRec xs e' ->
-      local (fmap tyOf xs <>) do
-        traverse_ ck' xs
+    LetRec (Decls _ts es) e' ->
+      local (fmap tyOf es <>) do
+        traverse_ ck' es
         ck' e'
     Abs x1 (Just t1) e' -> do
       t2 <- extendEnv x1 t1 do ck' e'

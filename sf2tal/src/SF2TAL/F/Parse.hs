@@ -29,7 +29,7 @@ tok p = p <* ws
 
 
 reserved :: S.Set T.Text
-reserved = S.fromList ["int", "at", "let", "and", "in", "if0", "then", "else"]
+reserved = S.fromList ["int", "at", "let", "type", "in", "if0", "then", "else"]
 
 
 ident :: Parser (Name_ u)
@@ -113,8 +113,19 @@ ops =
     bin p s = BinOp p <$ sym s <?> "arithmetic operators"
 
 
-letBody :: Parser (Name, Tm)
-letBody = (,) <$> ident <* sym "=" <*> tm
+declV :: Parser (Name, Tm)
+declV = (,) <$> ident <* sym "=" <*> tm
+
+
+declT :: Parser (TName, Ty)
+declT = (,) <$> (kw "type" *> ident <* sym "=") <*> ty
+
+
+decls :: Parser Decls
+decls = do
+  ts <- M.fromList <$> sepEndBy declT (sym ";")
+  vs <- M.fromList <$> sepEndBy declV (sym ";")
+  pure $ Decls ts vs
 
 
 tm :: Parser Tm
@@ -122,10 +133,7 @@ tm =
   Loc
     <$> getSourcePos
     <*> choice
-      [ LetRec
-          <$> (kw "let" *> (M.fromList <$> sepEndBy letBody (sym ";")))
-          <* kw "in"
-          <*> tm
+      [ LetRec <$> (kw "let" *> decls) <* kw "in" <*> tm
       , Abs <$> (sym "\\" *> ident) <*> optional (sym ":" *> ty) <* sym "." <*> tm
       , If <$> (kw "if" *> tm) <*> (kw "then" *> tm) <*> (kw "else" *> tm)
       , ops

@@ -5,6 +5,9 @@ module SF2TAL.F.F
   , TName
   , Name
   , Ty (..)
+  , DeclsT
+  , DeclsV
+  , Decls (..)
   , BinOps (..)
   , Tm (..)
   , Plate (..)
@@ -50,6 +53,15 @@ data Ty where
   TTuple :: [Ty] -> Ty
 
 
+type DeclsT = M.Map TName Ty
+
+
+type DeclsV = M.Map Name Tm
+
+
+data Decls = Decls DeclsT DeclsV
+
+
 -- | p
 data BinOps
   = -- | +
@@ -75,7 +87,7 @@ data Tm where
   -- | i
   IntLit :: Int -> Tm
   -- | letrec x1 : t = e1 and ... in e end
-  LetRec :: M.Map Name Tm -> Tm -> Tm
+  LetRec :: Decls -> Tm -> Tm
   -- | \x1 : t. e
   Abs :: Name -> Maybe Ty -> Tm -> Tm
   -- | e1 e2
@@ -100,6 +112,9 @@ data Tm where
 deriving stock instance Show Ty
 
 
+deriving stock instance Show Decls
+
+
 deriving stock instance Show BinOps
 
 
@@ -118,11 +133,15 @@ instance Eq Ty where
 deriving stock instance Eq BinOps
 
 
+deriving stock instance Eq Decls
+
+
 deriving stock instance Eq Tm
 
 
 data Plate f = Plate
   { pTy :: Ty -> f Ty
+  , pDecls :: Decls -> f Decls
   , pTm :: Tm -> f Tm
   }
 
@@ -131,12 +150,16 @@ instance ProjOf Plate Ty where
   getProj = pTy
 
 
+instance ProjOf Plate Decls where
+  getProj = pDecls
+
+
 instance ProjOf Plate Tm where
   getProj = pTm
 
 
 instance Multiplate Plate where
-  multiplate (p :: Plate f) = Plate{pTy, pTm}
+  multiplate (p :: Plate f) = Plate{pTy, pDecls, pTm}
     where
       infixl 4 <$>:
       infixl 4 <*>:
@@ -151,10 +174,12 @@ instance Multiplate Plate where
         TForall a t -> TForall a <$>: t
         TTuple ts -> TTuple <$> traverse (getProj p) ts
 
+      pDecls (Decls ts es) = Decls <$> traverse (getProj p) ts <*> traverse (getProj p) es
+
       pTm = \case
         Var x t -> Var x <$> traverse (getProj p) t
         IntLit i -> pure $ IntLit i
-        LetRec xs e -> LetRec <$> traverse (getProj p) xs <*>: e
+        LetRec ds e -> LetRec <$>: ds <*>: e
         Abs x t e -> Abs x <$> traverse (getProj p) t <*>: e
         e1 `App` e2 -> App <$>: e1 <*>: e2
         AbsT a e -> AbsT a <$>: e
@@ -167,7 +192,7 @@ instance Multiplate Plate where
         Loc l e -> Loc l <$>: e
 
 
-  mkPlate f = Plate (f pTy) (f pTm)
+  mkPlate f = Plate (f pTy) (f pDecls) (f pTm)
 
 
 tyOf :: Tm -> Ty
@@ -175,7 +200,7 @@ tyOf = \case
   Var _ (Just t) -> t
   Var _ Nothing -> error "Unannotated variable"
   IntLit _ -> TInt
-  LetRec _xs e -> tyOf e
+  LetRec _ds e -> tyOf e
   Abs _x (Just t) e -> t `TFun` tyOf e
   Abs _ Nothing _ -> error "Abs: Unannotated argument"
   e1 `App` _
@@ -248,16 +273,21 @@ instance PP.Pretty BinOps where
     BLe -> "<="
 
 
+instance PP.Pretty Decls where
+  pretty (Decls ts es) =
+    PP.vsep $
+      fmap (\(x, v) -> "type" <+> pp x <+> "=" <+> pp v <> ";") (M.toList ts)
+        <> fmap (\(x, v) -> pp x <+> "=" <+> pp v <> ";") (M.toList es)
+
+
 instance PP.Pretty Tm where
   pretty = \case
     Var x (Just t) -> pp x <+> ":" <+> pp t
     Var x Nothing -> pp x
     IntLit i -> pp i
-    LetRec xs e ->
+    LetRec ds e ->
       PP.vsep
-        [ nest $
-            PP.vsep $
-              "let" : fmap (\(x, v) -> pp x <+> "=" <+> pp v <> ";") (M.toList xs)
+        [ nest $ PP.vsep ["let", pp ds]
         , nest $ PP.vsep ["in", pp e]
         ]
     Abs x t e -> "\\" <> arg <> "." <+> pp e

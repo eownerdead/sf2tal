@@ -15,7 +15,13 @@ import SF2TAL.Plate
 import SF2TAL.Prelude
 
 
-type TcEnv = M.Map Name Ty
+data TcEnv = TcEnv
+  { tEnv :: M.Map TName Ty
+  , env :: M.Map Name Ty
+  }
+
+
+$(makeFieldsId ''TcEnv)
 
 
 type TcSt = M.Map TName Ty
@@ -25,19 +31,21 @@ data TcException where
   TcException ::
     HasCallStack =>
     { msg :: PP.Doc ann
-    , env :: TcEnv
+    , tcEnv :: TcEnv
     , st :: TcSt
     } ->
     TcException
 
 
 instance Show TcException where
-  show (TcException{msg, env, st}) =
+  show (TcException{msg, tcEnv, st}) =
     docStr $
       PP.vsep
         [ msg
         , "env:"
-        , ppMap ":" env
+        , ppMap ":" (tcEnv ^. env)
+        , "type env:"
+        , ppMap ":" (tcEnv ^. tEnv)
         , "substitutions:"
         , ppMap ":" st
         , pp $ prettyCallStack callStack
@@ -52,13 +60,9 @@ type Tc es = (Uniq :> es, Reader TcEnv :> es, State TcSt :> es)
 
 err :: (HasCallStack, Tc es) => PP.Doc ann -> Eff es a
 err msg = do
-  env <- ask
+  tcEnv <- ask
   st <- get
-  throwIO $ TcException{msg, env, st}
-
-
-extendEnv :: Tc es => Name -> Ty -> Eff es a -> Eff es a
-extendEnv x t = local (M.insert x t)
+  throwIO $ TcException{msg, tcEnv, st}
 
 
 type Sigma = Ty
@@ -102,6 +106,17 @@ ftvs ts = do
   pure $ S.filter (\(Name s _) -> not $ T.isPrefixOf "." s) ts'
 
 
+replaceSynonyms :: Tc es => Sigma -> Eff es Sigma
+replaceSynonyms = traverseMFor $ postMap purePlate{pTy}
+  where
+    pTy = \case
+      TVar a ->
+        preview (tEnv . ix a) >>= \case
+          Just t' -> replaceSynonyms t'
+          Nothing -> pure $ TVar a
+      t -> pure t
+
+
 -- Type scheme
 data Scheme = Scheme (S.Set TName) Rho
 
@@ -132,15 +147,13 @@ zonk :: (Tc es, ProjOf Plate a) => a -> Eff es a
 zonk = traverseMFor $ postMap purePlate{pTy}
   where
     pTy = \case
-      TVar a
-        | isMeta a -> do
-            readMeta a >>= \case
-              Nothing -> pure $ TVar a
-              Just t -> do
-                t' <- zonk t
-                writeMeta a t'
-                pure t'
-        | otherwise -> pure $ TVar a
+      TVar a | isMeta a -> do
+        readMeta a >>= \case
+          Nothing -> pure $ TVar a
+          Just t -> do
+            t' <- zonk t
+            writeMeta a t'
+            pure t'
       t -> pure t
 
 
@@ -163,7 +176,7 @@ quantify as e t = do
 
 
 unify :: Tc es => Tau -> Tau -> Eff es ()
-unify s t = case (s, t) of
+unify = curry \case
   (TVar a, TVar b)
     | a == b -> pure ()
   (TVar a, t2) | isMeta a -> unifyVar a t2
@@ -171,7 +184,7 @@ unify s t = case (s, t) of
   (TInt, TInt) -> pure ()
   (TFun s1 s2, TFun t1 t2) -> unify s1 t1 >> unify s2 t2
   (TTuple ss, TTuple ts) -> traverse_ (uncurry unify) (zip ss ts)
-  _ -> err $ "Cannot unify" <+> pp s <+> "with" <+> pp t
+  (s, t) -> err $ "Cannot unify" <+> pp s <+> "with" <+> pp t
   where
     unifyVar :: Tc es => TName -> Tau -> Eff es ()
     unifyVar a1 t2 =
@@ -180,10 +193,11 @@ unify s t = case (s, t) of
         Nothing -> unifyUbVar a1 t2
 
     unifyUbVar :: Tc es => TName -> Tau -> Eff es ()
-    unifyUbVar a1 t2@(TVar b1) | isMeta b1 = do
-      preuse (ix b1) >>= \case
-        Just t2' -> unify (TVar a1) t2'
-        Nothing -> writeMeta a1 t2
+    unifyUbVar a1 t2@(TVar b1)
+      | isMeta b1 =
+          preuse (ix b1) >>= \case
+            Just t2' -> unify (TVar a1) t2'
+            Nothing -> writeMeta a1 t2
     unifyUbVar a1 t2 = do
       tvs2 <- metaTvs [t2]
       if a1 `S.member` tvs2
@@ -264,21 +278,21 @@ checkInstSigma = subsCheckRho
 inferRho :: Tc es => Tm -> Eff es (Ty, Tm)
 inferRho = \case
   Var x _ ->
-    preview (ix x) >>= \case
+    preview (env . ix x) >>= \case
       Just t -> do
         (t', f) <- inferInstSigma t
         pure (t', f $ Var x (Just t'))
       Nothing -> err $ "Unbound variable" <+> pp x
   IntLit i -> pure (TInt, IntLit i)
-  LetRec xs e -> do
-    ts <- traverse (const freshMeta) xs
-    local (ts <>) do
-      xs' <- M.traverseWithKey (\x e' -> checkSigma e' (ts M.! x)) xs
+  LetRec (Decls ts es) e -> do
+    tes <- traverse (const freshMeta) es
+    local ((env <>~ tes) . (tEnv <>~ ts)) do
+      es' <- M.traverseWithKey (\x e' -> checkSigma e' (tes M.! x)) es
       (t, e') <- inferRho e
-      pure (t, LetRec xs' e')
+      pure (t, LetRec (Decls ts es') e')
   Abs x1 t e -> do
-    t1 <- maybe freshMeta pure t
-    (t', e') <- extendEnv x1 t1 do inferRho e
+    t1 <- maybe freshMeta replaceSynonyms t
+    (t', e') <- local (env . at x1 ?~ t1) do inferRho e
     pure (t1 `TFun` t', Abs x1 (Just t1) e')
   e1 `App` e2 -> do
     (t, e1') <- inferRho e1
@@ -311,9 +325,10 @@ inferRho = \case
     e2' <- checkRho e2 t
     pure (t, If v' e1' e2')
   e `Ann` t -> do
-    e' <- checkSigma e t
-    (t', f) <- inferInstSigma t
-    pure (t', f e')
+    t' <- replaceSynonyms t
+    e' <- checkSigma e t'
+    (t'', f) <- inferInstSigma t'
+    pure (t'', f e')
   Loc l e -> do
     (t, e') <- inferRho e
     pure (t, Loc l e')
@@ -323,7 +338,7 @@ checkRho :: Tc es => Tm -> Ty -> Eff es Tm
 checkRho e tExpect = case e of
   Abs x _t e' -> do
     (t1, t2) <- unifyFun tExpect
-    local (at x ?~ t1) do Abs x (Just t1) <$> checkRho e' t2
+    local (env . at x ?~ t1) do Abs x (Just t1) <$> checkRho e' t2
   Loc l e' -> Loc l <$> checkRho e' tExpect
   _ -> do
     (actual, e') <- inferRho e
@@ -337,7 +352,7 @@ inferSigma e = do
   -- GEN1
   (t, e') <- inferRho e
   ts <- metaTvs [t]
-  envs <- metaTvs =<< ask
+  envs <- metaTvs =<< view env
   quantify (ts S.\\ envs) e' t
 
 
@@ -347,7 +362,7 @@ checkSigma e t = do
   -- GEN2
   (Scheme as t', f) <- skolemise t
   e' <- checkRho e t'
-  envs <- asks M.elems
+  envs <- view (env . to M.elems)
   esc <- ftvs (t : envs)
   let bads = esc `S.union` as
   unless (null bads) do err "Not polymorphic enough"
@@ -355,6 +370,6 @@ checkSigma e t = do
 
 
 infer :: Uniq :> es => Tm -> Eff es Tm
-infer e = runReader mempty $ evalState mempty do
+infer e = runReader (TcEnv mempty mempty) $ evalState mempty do
   (_t, e') <- inferRho e
   zonk e'
