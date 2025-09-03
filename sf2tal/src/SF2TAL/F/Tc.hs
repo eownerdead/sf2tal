@@ -11,7 +11,13 @@ import SF2TAL.PP
 import SF2TAL.Prelude
 
 
-type Env = M.Map Name Ty
+data Env = Env
+  { env :: M.Map Name Ty
+  , curSpan :: Position
+  }
+
+
+$(makeFieldsId ''Env)
 
 
 data TcException where
@@ -19,8 +25,15 @@ data TcException where
 
 
 instance Show TcException where
-  show (TcException e env) =
-    docStr $ PP.vsep [e, "env:", ppMap ":" env, pp $ prettyCallStack callStack]
+  show (TcException e env') =
+    docStr $
+      PP.vsep
+        [ e
+        , "at:" <+> pp (env' ^. curSpan)
+        , "env:"
+        , ppMap ":" (env' ^. env)
+        , pp $ prettyCallStack callStack
+        ]
 
 
 instance Exception TcException
@@ -31,23 +44,19 @@ type Tc ann es = (Reader Env :> es)
 
 err :: (HasCallStack, Tc ann es) => [PP.Doc ann] -> Eff es a
 err es = do
-  env <- ask
-  throwIO $ TcException (PP.vsep es) env
-
-
-extendEnv :: Tc ann es => Name -> Ty -> Eff es a -> Eff es a
-extendEnv x t = local do M.insert x t
+  env' <- ask
+  throwIO $ TcException (PP.vsep es) env'
 
 
 ck :: Tm -> Eff es ()
-ck = runReader mempty . void . ck'
+ck = runReader (Env{env = mempty, curSpan = def}) . void . ck'
 
 
 ck' :: Tc ann es => Tm -> Eff es Ty
 ck' e = do
   t <- case e of
     Var x (Just t) -> do
-      preview (ix x) >>= \case
+      preview (env . ix x) >>= \case
         Just t'
           | t == t' -> pure t
           | otherwise ->
@@ -56,11 +65,11 @@ ck' e = do
     Var _ Nothing -> err ["Unannotated variable", pp e]
     IntLit _ -> pure TInt
     LetRec (Decls _ts es) e' ->
-      local (fmap tyOf es <>) do
+      local (env <>~ fmap tyOf es) do
         traverse_ ck' es
         ck' e'
     Abs x1 (Just t1) e' -> do
-      t2 <- extendEnv x1 t1 do ck' e'
+      t2 <- local (env . at x1 ?~ t1) do ck' e'
       pure $ t1 `TFun` t2
     Abs _ Nothing _ -> err ["Unannotated abstraction", pp e]
     e1 `App` e2 -> do
@@ -105,7 +114,7 @@ ck' e = do
         err ["then and else is not a same", "then:" <+> pp t1, "else:" <+> pp t2, pp e]
       pure t1
     x@(_ `Ann` _) -> err ["Ann:" <+> pp x]
-    Meta _ e' -> ck' e'
+    Meta (Span s) e' -> local (curSpan .~ s) do ck' e'
 
   if t == tyOf e
     then pure t

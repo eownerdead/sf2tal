@@ -5,6 +5,8 @@ module SF2TAL.Middle.Middle
   , TName
   , Name
   , KName
+  , Meta (..)
+  , Position
   , Ty (..)
   , Val (..)
   , Data (..)
@@ -24,6 +26,7 @@ where
 
 import Data.Map qualified as M
 import Data.Set qualified as S
+import Error.Diagnose (Position)
 import Prettyprinter qualified as PP
 import SF2TAL.F (BinOps (..), Meta (..), Name, TName)
 import SF2TAL.Name

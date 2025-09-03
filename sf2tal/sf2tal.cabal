@@ -44,6 +44,7 @@ common common
     bytestring ^>=0.12.1.0,
     text ^>=2.1.1,
     containers ^>=0.6.7,
+    data-default ^>=0.7.1.3,
     microlens-platform ^>=0.4.3.5,
     microlens,
     prettyprinter ^>=1.7.1,

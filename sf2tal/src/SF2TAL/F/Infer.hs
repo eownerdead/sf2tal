@@ -399,12 +399,7 @@ infer =
     (_t, e') <- inferRho e
     zonk e'
   where
-    tcenv =
-      TcEnv
-        { tEnv = mempty
-        , env = mempty
-        , curSpan = D.Position (1, 1) (1, 1) ""
-        }
+    tcenv = TcEnv{tEnv = mempty, env = mempty, curSpan = def}
     handler _ e@TcErr{msg, tcEnv} = do
       logReport $ D.Err Nothing (docText msg) [(tcEnv ^. curSpan, D.This "")] []
       throwIO $ FatalInferException e

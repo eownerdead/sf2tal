@@ -15,6 +15,7 @@ import SF2TAL.Prelude
 data Env = Env
   { u_ :: M.Map Name Ty
   , k_ :: M.Map KName Ty
+  , curSpan :: Position
   }
 
 
@@ -34,6 +35,7 @@ instance Show TcException where
     docStr $
       PP.vsep
         [ e
+        , "at:" <+> pp (env ^. curSpan)
         , "env:"
         , ppMap ":" (env ^. u_)
         , "kenv:"
@@ -146,14 +148,15 @@ ckTm' expr = case expr of
   If x _k1 _k2 -> do
     when (tyOf x /= TInt) do
       err ["Type of the condition is not int, but" <+> pp (tyOf x), pp expr]
-  Meta _ e -> ckTm' e
+  Meta (Span s) e -> local (curSpan .~ s) do ckTm' e
 
 
 ckTm :: Tm -> Eff es ()
-ckTm e = runReader (Env{u_ = mempty, k_ = mempty}) do
+ckTm e = runReader (Env{u_ = mempty, k_ = mempty, curSpan = def}) do
   ckTm' e
 
 
 ckTopLevel :: TopLevel -> Eff es ()
-ckTopLevel (TopLevel fs) = runReader (Env{u_ = mempty, k_ = mempty}) do
-  traverse_ ckData fs
+ckTopLevel (TopLevel fs) =
+  runReader (Env{u_ = mempty, k_ = mempty, curSpan = def}) do
+    traverse_ ckData fs

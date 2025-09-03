@@ -5,6 +5,7 @@ module SF2TAL.F.F
   , TName
   , Name
   , Meta (..)
+  , Position
   , Ty (..)
   , DeclsT
   , DeclsV
