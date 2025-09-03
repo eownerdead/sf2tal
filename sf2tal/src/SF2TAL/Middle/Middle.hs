@@ -25,12 +25,11 @@ where
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Prettyprinter qualified as PP
-import SF2TAL.F (BinOps (..), Name, TName)
+import SF2TAL.F (BinOps (..), Meta (..), Name, TName)
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
 import SF2TAL.Prelude
-import Text.Megaparsec (SourcePos)
 
 
 data K_
@@ -97,7 +96,7 @@ data Tm where
   App :: Val -> [Ty] -> [Val] -> KName -> Tm
   -- | K, C, H, A: if(v, k1, k2)
   If :: Val -> KName -> KName -> Tm
-  Loc :: SourcePos -> Tm -> Tm
+  Meta :: Meta -> Tm -> Tm
 
 
 newtype TopLevel = TopLevel (M.Map Name Data)
@@ -179,7 +178,7 @@ instance Multiplate Plate where
         App x ts xs k ->
           App x <$> traverse (getProj p) ts <*> pure xs <*> pure k
         If x e1 e2 -> pure $ If x e1 e2
-        Loc l e -> Loc l <$>: e
+        Meta m e -> Meta m <$>: e
 
 
   mkPlate f = Plate (f pTy) (f pVal) (f pData) (f pTm)
@@ -293,7 +292,7 @@ instance PP.Pretty Ty where
 
 instance PP.Pretty Val where
   pretty = \case
-    Var x t -> pp x -- <+> ":" <+> pp t
+    Var x t -> pp x <+> ":" <+> pp t
     IntLit i -> pp i
     v `AppT` t -> parens [pp v] <> brackets [pp t]
     Pack t1 v t2 ->
@@ -340,7 +339,7 @@ instance PP.Pretty Tm where
         <> parens (fmap pp xs)
         <> braces [pp k]
     If v e1 e2 -> "if" <> parens [pp v, pp e1, pp e2]
-    Loc l e -> pp e -- <+> fromString (sourcePosPretty l)]
+    Meta m e -> pp e <+> pp m
 
 
 instance PP.Pretty TopLevel where

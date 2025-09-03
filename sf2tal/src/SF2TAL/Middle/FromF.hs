@@ -44,7 +44,7 @@ kAbs = \case
     t' <- kTy $ F.tyOf e
     c <- Name "k" <$> fresh
     Abs [a] [] c t' <$> kExp e (pure . AppK c)
-  F.Loc _ e -> kAbs e
+  F.Meta _ e -> kAbs e
   e -> error $ docStr $ "kAbs:" <+> pp e
 
 
@@ -104,7 +104,7 @@ kExp e k = case e of
         Let (BindK k1' dummy TInt k1) $
           Let (BindK k2' dummy TInt k2) $
             If x k1' k2'
-  F.Loc l e' -> Loc l <$> kExp e' k
+  F.Meta m e' -> Meta m <$> kExp e' k
   _ -> error $ docStr $ "kExp: " <> pp e
 
 

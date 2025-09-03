@@ -73,6 +73,14 @@
                 effectful-microlens.custom =
                   _: inputs'.effectful-microlens.packages.effectful-microlens;
                 haskell-stack-trace-plugin.check = false;
+                diagnose =  {super, ...}: {
+                  broken = false;
+                  jailbreak = true;
+                  cabalFlags = {
+                    megaparsec-compat = true;
+                  };
+                  extraBuildDepends = with super; [ megaparsec ];
+                };
 
                 # HACK: https://github.com/srid/haskell-flake/issues/198#issuecomment-2824602736
                 LLVM.custom = _: pkgs.llvmPackages.llvm;

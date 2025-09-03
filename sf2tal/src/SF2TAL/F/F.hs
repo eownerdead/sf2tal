@@ -4,6 +4,7 @@ module SF2TAL.F.F
   ( module SF2TAL.Name
   , TName
   , Name
+  , Meta (..)
   , Ty (..)
   , DeclsT
   , DeclsV
@@ -19,12 +20,12 @@ where
 
 import Data.Map qualified as M
 import Data.Set qualified as S
+import Error.Diagnose (Position)
 import Prettyprinter qualified as PP
 import SF2TAL.Name
 import SF2TAL.PP
 import SF2TAL.Plate
 import SF2TAL.Prelude
-import Text.Megaparsec (SourcePos, sourcePosPretty)
 
 
 data T_
@@ -37,6 +38,10 @@ data U_
 
 
 type Name = Name_ U_
+
+
+data Meta where
+  Span :: Position -> Meta
 
 
 -- | t
@@ -106,7 +111,10 @@ data Tm where
   If :: Tm -> Tm -> Tm -> Tm
   -- | e: t
   Ann :: Tm -> Ty -> Tm
-  Loc :: SourcePos -> Tm -> Tm
+  Meta :: Meta -> Tm -> Tm
+
+
+deriving stock instance Show Meta
 
 
 deriving stock instance Show Ty
@@ -119,6 +127,9 @@ deriving stock instance Show BinOps
 
 
 deriving stock instance Show Tm
+
+
+deriving stock instance Eq Meta
 
 
 instance Eq Ty where
@@ -189,7 +200,7 @@ instance Multiplate Plate where
         BinOp op e1 e2 -> BinOp op <$>: e1 <*>: e2
         If e1 e2 e3 -> If <$>: e1 <*>: e2 <*>: e3
         e `Ann` t -> Ann <$>: e <*>: t
-        Loc l e -> Loc l <$>: e
+        Meta m e -> Meta m <$>: e
 
 
   mkPlate f = Plate (f pTy) (f pDecls) (f pTm)
@@ -220,7 +231,7 @@ tyOf = \case
   BinOp{} -> TInt
   If _ e _ -> tyOf e
   _ `Ann` t -> t
-  Loc _ e -> tyOf e
+  Meta _ e -> tyOf e
 
 
 ftv :: Ty -> S.Set TName
@@ -251,6 +262,11 @@ ppSimp e = case e of
   IntLit{} -> pp e
   Tuple{} -> pp e
   _ -> parens [pp e]
+
+
+instance PP.Pretty Meta where
+  pretty = \case
+    Span s -> pp s
 
 
 instance PP.Pretty Ty where
@@ -303,4 +319,4 @@ instance PP.Pretty Tm where
     BinOp p e1 e2 -> ppSimp e1 <+> pp p <+> ppSimp e2
     If e1 e2 e3 -> "if" <> parens [pp e1, pp e2, pp e3]
     e `Ann` t -> pp e <+> ":" <+> pp t
-    Loc l e -> parens [pp e <+> fromString (sourcePosPretty l)]
+    Meta m e -> pp e <+> pp m

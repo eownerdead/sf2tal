@@ -15,12 +15,14 @@ import SF2TAL.Llvm qualified as L
 import SF2TAL.Middle qualified as M
 import SF2TAL.PP
 import SF2TAL.Prelude
+import System.Exit
 import System.Process.Typed qualified as P
-import UnliftIO
+import UnliftIO.Temporary
 
 
 compile :: (IOE :> es, Uniq :> es, Log :> es) => T.Text -> Eff es L.ModuleRef
 compile s = do
+  logAddFile "" (T.unpack s)
   logMsg Info "Parsing"
   e <- F.parse s
   logMsg Debug $ docText $ pp e
@@ -74,6 +76,10 @@ run s = runUniq do
 
 main :: IO ()
 main = runEff $ runLogStderr (const True) $ runUniq do
-  m <- compile =<< liftIO T.getContents
+  s <- liftIO T.getContents
+  m <-
+    compile s `catch` \(e :: SomeFatalException) -> do
+      logMsg Info (T.pack $ show e)
+      liftIO $ exitWith (ExitFailure 1)
   _ <- liftIO $ T.withCString "main.bc" $ L.writeBitcodeToFile m
   pure ()

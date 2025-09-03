@@ -2,6 +2,7 @@ module SF2TAL.Prelude
   ( module Prelude
   , module Data.Foldable
   , module Data.Tuple
+  , module Data.Typeable
   , module Control.Monad
   , fromMaybe
   , IsString (..)
@@ -24,6 +25,7 @@ import Data.Foldable
 import Data.Maybe
 import Data.String (IsString (..))
 import Data.Tuple
+import Data.Typeable (cast)
 import Data.Void (Void)
 -- import Control.Monad.IO.Unlift
 import Effectful

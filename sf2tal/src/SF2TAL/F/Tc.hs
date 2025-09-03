@@ -105,7 +105,7 @@ ck' e = do
         err ["then and else is not a same", "then:" <+> pp t1, "else:" <+> pp t2, pp e]
       pure t1
     x@(_ `Ann` _) -> err ["Ann:" <+> pp x]
-    Loc _ e' -> ck' e'
+    Meta _ e' -> ck' e'
 
   if t == tyOf e
     then pure t

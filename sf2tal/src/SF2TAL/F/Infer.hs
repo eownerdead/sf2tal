@@ -6,8 +6,10 @@ where
 import Data.Map qualified as M
 import Data.Set qualified as S
 import Data.Text qualified as T
+import Effectful.Error.Static
 import Effectful.Reader.Static.Microlens
 import Effectful.State.Static.Local.Microlens
+import Error.Diagnose qualified as D
 import Prettyprinter qualified as PP
 import SF2TAL.F.F
 import SF2TAL.PP
@@ -18,6 +20,7 @@ import SF2TAL.Prelude
 data TcEnv = TcEnv
   { tEnv :: M.Map TName Ty
   , env :: M.Map Name Ty
+  , curSpan :: D.Position
   }
 
 
@@ -27,21 +30,23 @@ $(makeFieldsId ''TcEnv)
 type TcSt = M.Map TName Ty
 
 
-data TcException where
-  TcException ::
+data TcErr where
+  TcErr ::
     HasCallStack =>
     { msg :: PP.Doc ann
     , tcEnv :: TcEnv
     , st :: TcSt
     } ->
-    TcException
+    TcErr
 
 
-instance Show TcException where
-  show (TcException{msg, tcEnv, st}) =
+instance Show TcErr where
+  show (TcErr{msg, tcEnv, st}) =
     docStr $
       PP.vsep
         [ msg
+        , "span:"
+        , pp (tcEnv ^. curSpan)
         , "env:"
         , ppMap ":" (tcEnv ^. env)
         , "type env:"
@@ -52,17 +57,20 @@ instance Show TcException where
         ]
 
 
-instance Exception TcException
-
-
-type Tc es = (Uniq :> es, Reader TcEnv :> es, State TcSt :> es)
+type Tc es =
+  ( Uniq :> es
+  , Log :> es
+  , Error TcErr :> es
+  , Reader TcEnv :> es
+  , State TcSt :> es
+  )
 
 
 err :: (HasCallStack, Tc es) => PP.Doc ann -> Eff es a
 err msg = do
   tcEnv <- ask
   st <- get
-  throwIO $ TcException{msg, tcEnv, st}
+  throwError $ TcErr{msg, tcEnv, st}
 
 
 type Sigma = Ty
@@ -184,7 +192,12 @@ unify = curry \case
   (TInt, TInt) -> pure ()
   (TFun s1 s2, TFun t1 t2) -> unify s1 t1 >> unify s2 t2
   (TTuple ss, TTuple ts) -> traverse_ (uncurry unify) (zip ss ts)
-  (s, t) -> err $ "Cannot unify" <+> pp s <+> "with" <+> pp t
+  (except, actual) ->
+    err $
+      PP.sep
+        [ "Could not match excepted type:" <+> pp except
+        , "with actual type:" <+> pp actual
+        ]
   where
     unifyVar :: Tc es => TName -> Tau -> Eff es ()
     unifyVar a1 t2 =
@@ -210,8 +223,7 @@ unifyFun (t1 `TFun` t2) = pure (t1, t2)
 unifyFun t = do
   t1 <- freshMeta
   t2 <- freshMeta
-  unify t (t1 `TFun` t2)
-    `catch` \(_ :: TcException) -> err ("Non-function type" <+> pp t)
+  unify (t1 `TFun` t2) t
   pure (t1, t2)
 
 
@@ -225,7 +237,7 @@ subsCheck sigma1 sigma2 = do
   let bads = esc `S.union` as
   unless (null bads) do
     err $
-      PP.vcat
+      PP.vsep
         [ "Subsumption check failed:"
         , nest (pp sigma1)
         , "is not as polymorphic as"
@@ -282,7 +294,7 @@ inferRho = \case
       Just t -> do
         (t', f) <- inferInstSigma t
         pure (t', f $ Var x (Just t'))
-      Nothing -> err $ "Unbound variable" <+> pp x
+      Nothing -> err $ "Variable not in scope: " <+> pp x
   IntLit i -> pure (TInt, IntLit i)
   LetRec (Decls ts es) e -> do
     tes <- traverse (const freshMeta) es
@@ -329,9 +341,9 @@ inferRho = \case
     e' <- checkSigma e t'
     (t'', f) <- inferInstSigma t'
     pure (t'', f e')
-  Loc l e -> do
+  Meta m@(Span s) e -> local (curSpan .~ s) do
     (t, e') <- inferRho e
-    pure (t, Loc l e')
+    pure (t, Meta m e')
 
 
 checkRho :: Tc es => Tm -> Ty -> Eff es Tm
@@ -339,7 +351,8 @@ checkRho e tExpect = case e of
   Abs x _t e' -> do
     (t1, t2) <- unifyFun tExpect
     local (env . at x ?~ t1) do Abs x (Just t1) <$> checkRho e' t2
-  Loc l e' -> Loc l <$> checkRho e' tExpect
+  Meta m@(Span s) e' -> local (curSpan .~ s) do
+    Meta m <$> checkRho e' tExpect
   _ -> do
     (actual, e') <- inferRho e
     f <- checkInstSigma actual tExpect
@@ -347,8 +360,8 @@ checkRho e tExpect = case e of
 
 
 -- ⊢poly⇑
-inferSigma :: Tc es => Tm -> Eff es (Sigma, Tm)
-inferSigma e = do
+_inferSigma :: Tc es => Tm -> Eff es (Sigma, Tm)
+_inferSigma e = do
   -- GEN1
   (t, e') <- inferRho e
   ts <- metaTvs [t]
@@ -369,7 +382,29 @@ checkSigma e t = do
   pure $ f $ foldr AbsT e' as
 
 
-infer :: Uniq :> es => Tm -> Eff es Tm
-infer e = runReader (TcEnv mempty mempty) $ evalState mempty do
-  (_t, e') <- inferRho e
-  zonk e'
+newtype FatalInferException = FatalInferException TcErr
+
+
+deriving stock instance Show FatalInferException
+
+
+instance Exception FatalInferException where
+  toException = toException . SomeFatalException
+  fromException e = fromException e >>= \(SomeFatalException e') -> cast e'
+
+
+infer :: (Uniq :> es, Log :> es) => Tm -> Eff es Tm
+infer =
+  runReader tcenv . evalState mempty . runErrorWith handler . \e -> do
+    (_t, e') <- inferRho e
+    zonk e'
+  where
+    tcenv =
+      TcEnv
+        { tEnv = mempty
+        , env = mempty
+        , curSpan = D.Position (1, 1) (1, 1) ""
+        }
+    handler _ e@TcErr{msg, tcEnv} = do
+      logReport $ D.Err Nothing (docText msg) [(tcEnv ^. curSpan, D.This "")] []
+      throwIO $ FatalInferException e

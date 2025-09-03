@@ -162,7 +162,7 @@ cExp = \case
                 t' -> error $ "not TExists: " <> show t'
     | otherwise -> error "Calling non-variable value in K"
   If v k1 k2 -> If <$> cVal v <*> pure k1 <*> pure k2
-  Loc l e -> Loc l <$> cExp e
+  Meta m e -> Meta m <$> cExp e
 
 
 cDec :: C es => Decl -> Eff es Decl

@@ -146,7 +146,7 @@ ckTm' expr = case expr of
   If x _k1 _k2 -> do
     when (tyOf x /= TInt) do
       err ["Type of the condition is not int, but" <+> pp (tyOf x), pp expr]
-  Loc _ e -> ckTm' e
+  Meta _ e -> ckTm' e
 
 
 ckTm :: Tm -> Eff es ()

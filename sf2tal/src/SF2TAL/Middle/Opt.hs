@@ -111,7 +111,7 @@ oTm = \case
       IntLit 0 -> k2 `AppK` IntLit 0
       IntLit _ -> k1 `AppK` IntLit 0
       v' -> If v' k1 k2
-  Loc l e -> Loc l <$> oTm e
+  Meta m e -> Meta m <$> oTm e
 
 
 oHVal :: Opt es => M.Map Name Data -> Eff es (M.Map Name Data)
