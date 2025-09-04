@@ -10,8 +10,9 @@ import SF2TAL.Middle.Middle
 import SF2TAL.Prelude
 
 
-newtype DEnv = DEnv
-  { substs :: M.Map Name Val
+data DEnv = DEnv
+  { tsubsts :: M.Map TName Ty
+  , substs :: M.Map Name Val
   }
 
 
@@ -71,8 +72,7 @@ oTm :: Opt es => Tm -> Eff es Tm
 oTm = \case
   Let (Bind x v) e -> do
     v' <- oVal v
-    e' <- oTm e
-    rebuildLet x (Bind x v') e'
+    local (substs . at x ?~ v') do oTm e
   Let (Rec ds) e -> do
     ds' <- oHVal ds
     e' <- oTm e
@@ -97,10 +97,13 @@ oTm = \case
       _ -> oTm e
     rebuildLet x (BinOp x p v1' v2') e'
   Let (Unpack a x v) e -> do
-    v' <- oVal v
-    e' <- oTm e
-    occurs . at x .= Nothing
-    pure $ Let (Unpack a x v') e'
+    oVal v >>= \case
+      Pack t1 v' _t2 -> do
+        local ((substs . at x ?~ v') . (tsubsts . at a ?~ t1)) do oTm e
+      v' -> do
+        e' <- oTm e
+        occurs . at x .= Nothing
+        pure $ Let (Unpack a x v') e'
   k `AppK` v -> (k `AppK`) <$> oVal v
   App v ts vs k -> do
     v' <- oVal v
@@ -126,5 +129,5 @@ oHVal ds = do
 
 
 oTopLevel :: TopLevel -> Eff es TopLevel
-oTopLevel (TopLevel ds) = runReader (DEnv{substs = mempty}) $
+oTopLevel (TopLevel ds) = runReader (DEnv{tsubsts = mempty, substs = mempty}) $
   evalState (DAcc{occurs = mempty}) do TopLevel <$> oHVal ds
