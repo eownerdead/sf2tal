@@ -96,7 +96,7 @@ ck' e = do
       ck' e' >>= \case
         TTuple ts ->
           if
-            | Just t' <- ts ^? ix (i - 1) -> pure t'
+            | Just t' <- ts ^? ix i -> pure t'
             | otherwise -> err ["Invalid index", pp e]
         t -> err ["Indexing a non-tuple value:" <+> pp t, pp e]
     BinOp _ e1 e2 -> do

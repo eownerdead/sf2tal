@@ -323,7 +323,7 @@ inferRho = \case
     case t' of
       TTuple ts ->
         if
-          | Just t'' <- ts ^? ix (i - 1) -> pure (t'', At i e')
+          | Just t'' <- ts ^? ix i -> pure (t'', At i e')
           | otherwise -> err "Indexing out of range"
       _ -> err $ "Indexing non tuple value" <+> pp t
   BinOp p e1 e2 -> do

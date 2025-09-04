@@ -139,10 +139,10 @@ lExp = \case
             lExp e1
     At x i v
       | TTuple ts <- tyOf v
-      , Just tv <- ts ^? ix (i - 1) -> do
+      , Just tv <- ts ^? ix i -> do
           v' <- lVal v
           t <- lTTuple $ tyOf v
-          i' <- L.int64Type >>= \ti -> L.constInt True ti (fromIntegral i - 1)
+          i' <- L.int64Type >>= \ti -> L.constInt True ti (fromIntegral i)
           v'' <- L.buildGEP2 "" t v' [i']
           tv'' <- lTy tv
           v''' <- L.buildLoad2 (prettyText x) tv'' v''

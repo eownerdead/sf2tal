@@ -124,7 +124,7 @@ cExp = \case
           foldr
             (\(i, y) -> Let (At y i $ Var vEnv tEnv))
             e'
-            (zip [1 ..] $ fmap fst fvs)
+            (zip [0 ..] $ fmap fst fvs)
     (fs'', DataW cls known sub) <- runWriter do
       (`M.traverseWithKey` fs') \x d -> cData x vEnv tEnv d
     let binds e' = foldr (\(x, v) -> Let $ Bind x v) e' $ M.toList sub
@@ -152,8 +152,8 @@ cExp = \case
                   when (TVar b /= b') do error "cExp: b /= b'"
                   pure $
                     Let (Unpack b z v') $
-                      Let (At zCode 1 $ Var z (TTuple [tCode, TVar b])) $
-                        Let (At zEnv 2 $ Var z (TTuple [tCode, TVar b])) $
+                      Let (At zCode 0 $ Var z (TTuple [tCode, TVar b])) $
+                        Let (At zEnv 1 $ Var z (TTuple [tCode, TVar b])) $
                           App
                             (Var zCode tCode `appT` ts')
                             []

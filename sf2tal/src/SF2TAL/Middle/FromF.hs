@@ -84,7 +84,7 @@ kExp e k = case e of
       []
   F.At i e'
     | F.TTuple ts <- F.tyOf e'
-    , Just t <- ts ^? ix (i - 1) -> kExp e' \x -> do
+    , Just t <- ts ^? ix i -> kExp e' \x -> do
         y <- freshName
         Let (At y i x) <$> (k . Var y =<< kTy t)
     | otherwise -> error $ docStr $ "At: " <> pp e

@@ -226,7 +226,7 @@ tyOf = \case
   At i es
     | TTuple ts <- tyOf es ->
         if
-          | Just t <- ts ^? ix (i - 1) -> t
+          | Just t <- ts ^? ix i -> t
           | otherwise -> error "At: Index out of range"
     | otherwise -> error "At: Type of es is not TTuple"
   BinOp{} -> TInt

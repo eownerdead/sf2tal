@@ -120,7 +120,7 @@ ckTm' expr = case expr of
     case tyOf y of
       TTuple ts ->
         if
-          | Just t <- ts ^? ix (i - 1) -> local (u_ . at x ?~ t) $ ckTm' e
+          | Just t <- ts ^? ix i -> local (u_ . at x ?~ t) $ ckTm' e
           | otherwise -> err ["Invalid index", pp expr]
       t -> err ["Indexing a non-tuple value:" <+> pp t, pp expr]
   Let (BinOp x _p x1 x2) e -> do
